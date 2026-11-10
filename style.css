@@ -256,3 +256,71 @@ body.touch .only-keys { display: none; }
   .btn { padding: 10px 16px; font-size: 16px; }
   .help { display: none; }
 }
+
+/* ---------------------------------------------------- controles de toque */
+#touch { display: none; }
+body.touch.in-game #touch { display: block; }
+
+#touch-zone {
+  position: fixed;
+  left: 0; bottom: 0;
+  top: calc(var(--hud-h) + var(--safe-t));
+  width: 50%;
+  z-index: 4;
+  touch-action: none;
+}
+
+#joy-base {
+  position: absolute;
+  /* posição de descanso; ao tocar, o JS move a base para baixo do dedo */
+  left: calc(92px + var(--safe-l));
+  top: calc(100% - 96px - var(--safe-b));
+  width: 124px; height: 124px;
+  margin: -62px 0 0 -62px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.22));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  opacity: 0.55;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+#joy-base.active { opacity: 0.95; }
+
+#joy-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #b9c4ff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+#btn-bomb {
+  position: fixed;
+  right: calc(30px + var(--safe-r));
+  bottom: calc(40px + var(--safe-b));
+  width: 104px; height: 104px;
+  padding: 20px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle at 35% 30%, #ffd36b, #ff8a1f 70%);
+  box-shadow: 0 6px 0 #c9541a, 0 12px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0.9;
+  z-index: 4;
+  touch-action: none;
+  cursor: pointer;
+}
+#btn-bomb svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+#btn-bomb.active { transform: translateY(4px) scale(0.95); box-shadow: 0 2px 0 #c9541a; }
+
+/* Em paisagem os controles ficam nas laterais, fora da arena. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #joy-base { width: 108px; height: 108px; margin: -54px 0 0 -54px; left: calc(76px + var(--safe-l)); top: calc(100% - 80px - var(--safe-b)); }
+  #btn-bomb { width: 88px; height: 88px; padding: 17px; right: calc(22px + var(--safe-r)); bottom: calc(30px + var(--safe-b)); }
+}
+
+.only-portrait { display: none !important; }
+@media (orientation: portrait) {
+  body.touch .only-portrait { display: list-item !important; flex-basis: 100%; color: var(--accent); }
+}

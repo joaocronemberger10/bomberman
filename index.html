@@ -43,6 +43,22 @@
 
   <div id="toast" role="status"></div>
 
+  <!-- Controles de toque (aparecem só em telas sensíveis ao toque) -->
+  <div id="touch">
+    <div id="touch-zone">
+      <div id="joy-base"><div id="joy-knob"></div></div>
+    </div>
+    <button id="btn-bomb" aria-label="Soltar bomba">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="28" cy="38" r="19" fill="#1c2340"/>
+        <rect x="36" y="12" width="10" height="12" rx="2" transform="rotate(30 41 18)" fill="#1c2340"/>
+        <path d="M46 14 q6 -8 12 -2" stroke="#1c2340" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="58" cy="11" r="4" fill="#fff3a6"/>
+        <circle cx="21" cy="31" r="5" fill="#4b568f"/>
+      </svg>
+    </button>
+  </div>
+
   <!-- Telas: início, pausa, fase concluída e fim de jogo -->
   <div id="overlay" class="visible">
     <section class="screen active" data-screen="menu">
@@ -55,7 +71,8 @@
         <li class="only-keys"><kbd>Espaço</kbd> bomba</li>
         <li class="only-keys"><kbd>P</kbd> pausar</li>
         <li class="only-touch">Joystick à esquerda para mover</li>
-        <li class="only-touch">Botão 💣 à direita para soltar bombas</li>
+        <li class="only-touch">Botão de bomba à direita</li>
+        <li class="only-touch only-portrait">Dica: deite o celular para ver a arena maior</li>
       </ul>
     </section>
 

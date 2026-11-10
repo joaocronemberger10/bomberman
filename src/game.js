@@ -65,6 +65,7 @@ class Game {
     this.ui.show('menu', { best: this.best });
 
     window.addEventListener('resize', () => this._resize());
+    document.addEventListener('fullscreenchange', () => this._resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this._resize(), 250));
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
     this._resize();
@@ -117,12 +118,15 @@ class Game {
     this.input.onAnyInput = () => this.audio.unlock();
     this.input.onPause = () => this.togglePause();
     this.input.onConfirm = () => ui.confirm();
+    this.input.onTouchDetected = () => this._resize();
     window.addEventListener('pointerdown', () => this.audio.unlock(), { passive: true });
   }
 
   /** Espaço (em px) reservado no topo e na base da tela para a interface. */
   _uiMargins() {
-    return { top: this.ui.hudHeight, bottom: 0 };
+    // No celular em pé, deixa a parte de baixo livre para o joystick e a bomba.
+    const retrato = window.innerHeight > window.innerWidth;
+    return { top: this.ui.hudHeight, bottom: this.input.isTouch && retrato ? 190 : 0 };
   }
 
   /**
@@ -186,12 +190,25 @@ class Game {
   startGame() {
     this.audio.unlock();
     this.audio.click();
+    this._enterFullscreen();
     this.score = 0;
     this.player.resetStats();
     this.loadLevel(1);
     this.state = 'playing';
     this.ui.hide();
     this.ui.toast('Fase 1');
+  }
+
+  /** No celular, tenta entrar em tela cheia (nem todo navegador permite). */
+  _enterFullscreen() {
+    if (!this.input.isTouch || document.fullscreenElement) return;
+    const el = document.documentElement;
+    const pedir = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!pedir) return;
+    try {
+      const r = pedir.call(el, { navigationUI: 'hide' });
+      if (r && r.catch) r.catch(() => {});
+    } catch { /* segue em tela normal */ }
   }
 
   /** Monta uma fase: mais inimigos (e mais rápidos) a cada nível. */
