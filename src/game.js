@@ -6,6 +6,9 @@ import { CONFIG } from './config.js';
 import { GameMap } from './map.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
+import { BombManager } from './bombs.js';
+import { ParticleSystem } from './particles.js';
+import { AudioFX } from './audio.js';
 
 class Game {
   constructor() {
@@ -16,6 +19,23 @@ class Game {
     this.map = new GameMap(this.scene);
     this.player = new Player(this.scene, this.map);
     this.input = new Input();
+    this.audio = new AudioFX();
+    this.input.onAnyInput = () => this.audio.unlock();
+
+    // Partículas: fogo (brilho aditivo) e destroços dos blocos (normal).
+    const n = CONFIG.MAX_PARTICLES;
+    this.fire = new ParticleSystem(this.scene, { count: n, size: 0.42, additive: true });
+    this.debris = new ParticleSystem(this.scene, { count: Math.floor(n / 2), size: 0.22, additive: false });
+
+    this.bombs = new BombManager(this.scene, this.map, {
+      onExplosion: (col, row, cells) => this._onExplosion(col, row, cells),
+      onBlockDestroyed: (col, row) => this._onBlockDestroyed(col, row),
+    });
+
+    // Clarão das explosões (uma única luz reaproveitada).
+    this.flash = new THREE.PointLight(0xffa640, 0, 9, 1.6);
+    this.flash.position.y = 1.4;
+    this.scene.add(this.flash);
 
     this.state = 'playing';
     this.level = 1;
@@ -128,6 +148,7 @@ class Game {
 
   loadLevel(level) {
     this.level = level;
+    this.bombs.clear();
     this.map.generate(0);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
@@ -136,7 +157,39 @@ class Game {
 
   /** Diz se uma célula pode ser ocupada por quem está andando. */
   canEnter(col, row) {
-    return this.map.isEmpty(col, row);
+    return this.map.isEmpty(col, row) && !this.bombs.hasBomb(col, row);
+  }
+
+  // ---------------------------------------------------------------- eventos
+
+  _onExplosion(col, row, cells) {
+    this.audio.explosion();
+    this.shake = Math.min(1.4, this.shake + 0.8);
+    const p = this.map.cellToWorld(col, row);
+    this.flash.position.set(p.x, 1.4, p.z);
+    this.flash.intensity = 16;
+    for (const c of cells) {
+      this.map.cellToWorld(c.col, c.row, p);
+      this.fire.emit(p.x, 0.35, p.z, {
+        count: c.dx === 0 && c.dz === 0 ? 14 : 7,
+        colors: [0xffe27a, 0xffa530, 0xff5a1f, 0xff3b1f],
+        speed: 2.2, up: 2.6, life: 0.6, gravity: 3, spread: 0.6,
+      });
+    }
+  }
+
+  _onBlockDestroyed(col, row) {
+    const p = this.map.cellToWorld(col, row);
+    this.debris.emit(p.x, 0.35, p.z, {
+      count: 10, colors: [0xf2a03d, 0xd97f1e, 0xffc56b, 0x8a5a1e],
+      speed: 2.6, up: 3.6, life: 0.8, gravity: 12, spread: 0.5,
+    });
+  }
+
+  _hurtPlayer() {
+    if (!this.player.damage()) return;
+    this.audio.hurt();
+    this.shake = Math.min(1.4, this.shake + 0.5);
   }
 
   // ------------------------------------------------------------ laço do jogo
@@ -144,12 +197,28 @@ class Game {
   _frame() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.state === 'playing') this._update(dt);
+    if (this.state !== 'paused') {
+      this.fire.update(dt);
+      this.debris.update(dt);
+      this.flash.intensity = Math.max(0, this.flash.intensity - dt * 45);
+    }
     this._updateCamera(dt);
     this.renderer.render(this.scene, this.camera);
   }
 
   _update(dt) {
-    this.player.update(dt, this.input.directions(), (c, r) => this.canEnter(c, r));
+    const player = this.player;
+    player.update(dt, this.input.directions(), (c, r) => this.canEnter(c, r));
+
+    // Bomba: colocada na célula do jogador, respeitando o limite simultâneo.
+    if (this.input.consumeBomb() && !player.dead && this.bombs.count < player.maxBombs) {
+      if (this.bombs.place(player.col, player.row, player.range)) this.audio.placeBomb();
+    }
+
+    this.bombs.update(dt);
+
+    // Dano das chamas no jogador.
+    if (this.bombs.isFlame(player.col, player.row)) this._hurtPlayer();
   }
 
   _updateCamera(dt) {
