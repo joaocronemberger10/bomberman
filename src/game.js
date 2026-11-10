@@ -1,5 +1,12 @@
 // ============================================================================
-// game.js — Ponto de entrada: cena, câmera, luzes e laço principal do jogo.
+// game.js — Ponto de entrada: cena, câmera, luzes, regras e laço principal.
+//
+// Estados do jogo:
+//   menu        tela inicial (arena ao fundo)
+//   playing     partida em andamento
+//   paused      pausado
+//   levelclear  fase concluída (aguardando "Próxima fase")
+//   gameover    fim de jogo
 // ============================================================================
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
@@ -9,8 +16,11 @@ import { Input } from './input.js';
 import { BombManager } from './bombs.js';
 import { ParticleSystem } from './particles.js';
 import { AudioFX } from './audio.js';
-import { PowerUpManager } from './powerups.js';
+import { PowerUpManager, POWERUP_LABELS } from './powerups.js';
 import { EnemyManager } from './enemies.js';
+import { UI } from './ui.js';
+
+const CHAVE_RECORDE = 'boom-arena-recorde';
 
 class Game {
   constructor() {
@@ -18,40 +28,45 @@ class Game {
     this._setupRenderer();
     this._setupScene();
 
+    this.ui = new UI();
+    this.audio = new AudioFX();
+    this.input = new Input();
     this.map = new GameMap(this.scene);
     this.player = new Player(this.scene, this.map);
-    this.input = new Input();
-    this.audio = new AudioFX();
-    this.input.onAnyInput = () => this.audio.unlock();
+    this.powerups = new PowerUpManager(this.scene, this.map);
+    this.enemies = new EnemyManager(this.scene, this.map);
+    this.bombs = new BombManager(this.scene, this.map, {
+      onExplosion: (col, row, cells) => this._onExplosion(col, row, cells),
+      onBlockDestroyed: (col, row) => this._onBlockDestroyed(col, row),
+    });
 
     // Partículas: fogo (brilho aditivo) e destroços dos blocos (normal).
     const n = CONFIG.MAX_PARTICLES;
     this.fire = new ParticleSystem(this.scene, { count: n, size: 0.42, additive: true });
     this.debris = new ParticleSystem(this.scene, { count: Math.floor(n / 2), size: 0.22, additive: false });
 
-    this.bombs = new BombManager(this.scene, this.map, {
-      onExplosion: (col, row, cells) => this._onExplosion(col, row, cells),
-      onBlockDestroyed: (col, row) => this._onBlockDestroyed(col, row),
-    });
-
-    this.powerups = new PowerUpManager(this.scene, this.map);
-    this.enemies = new EnemyManager(this.scene, this.map);
-    this.score = 0;
-
     // Clarão das explosões (uma única luz reaproveitada).
     this.flash = new THREE.PointLight(0xffa640, 0, 9, 1.6);
     this.flash.position.y = 1.4;
     this.scene.add(this.flash);
 
-    this.state = 'playing';
+    this.state = 'menu';
     this.level = 1;
+    this.score = 0;
+    this.time = CONFIG.LEVEL_TIME;
+    this.deathTimer = 0;
     this.shake = 0;               // intensidade atual do tremor de câmera
+    this.best = this._loadBest();
     this.clock = new THREE.Clock();
 
-    this.loadLevel(1);
+    this._bindUI();
+    this.loadLevel(1);            // arena de fundo para a tela inicial
+    this.ui.setMuted(this.audio.muted);
+    this.ui.show('menu', { best: this.best });
 
     window.addEventListener('resize', () => this._resize());
-    window.addEventListener('orientationchange', () => setTimeout(() => this._resize(), 200));
+    window.addEventListener('orientationchange', () => setTimeout(() => this._resize(), 250));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.pause(); });
     this._resize();
     this.renderer.setAnimationLoop(() => this._frame());
   }
@@ -90,9 +105,24 @@ class Game {
     this.scene.add(sol);
   }
 
+  _bindUI() {
+    const ui = this.ui;
+    ui.on('play', () => this.startGame());
+    ui.on('restart', () => this.startGame());
+    ui.on('resume', () => this.resume());
+    ui.on('pause', () => this.togglePause());
+    ui.on('next', () => this.nextLevel());
+    ui.on('mute', () => { this.audio.unlock(); ui.setMuted(this.audio.toggleMute()); });
+
+    this.input.onAnyInput = () => this.audio.unlock();
+    this.input.onPause = () => this.togglePause();
+    this.input.onConfirm = () => ui.confirm();
+    window.addEventListener('pointerdown', () => this.audio.unlock(), { passive: true });
+  }
+
   /** Espaço (em px) reservado no topo e na base da tela para a interface. */
   _uiMargins() {
-    return { top: 0, bottom: 0 };
+    return { top: this.ui.hudHeight, bottom: 0 };
   }
 
   /**
@@ -150,10 +180,25 @@ class Game {
     if (deslocY !== 0) cam.setViewOffset(w, h, 0, deslocY, w, h);
   }
 
-  // ------------------------------------------------------------------ fases
+  // ---------------------------------------------------------- fluxo do jogo
 
+  /** Começa um jogo novo a partir da fase 1. */
+  startGame() {
+    this.audio.unlock();
+    this.audio.click();
+    this.score = 0;
+    this.player.resetStats();
+    this.loadLevel(1);
+    this.state = 'playing';
+    this.ui.hide();
+    this.ui.toast('Fase 1');
+  }
+
+  /** Monta uma fase: mais inimigos (e mais rápidos) a cada nível. */
   loadLevel(level) {
     this.level = level;
+    this.time = CONFIG.LEVEL_TIME;
+    this.deathTimer = 0;
     this.bombs.clear();
     this.powerups.clear();
     this.enemies.clear();
@@ -161,7 +206,68 @@ class Game {
     this.enemies.spawn(this.map.generate(qtd), level);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
+    this.player.invulnerable = 0;
     this.input.reset();
+  }
+
+  nextLevel() {
+    if (this.state !== 'levelclear') return;
+    this.audio.click();
+    this.loadLevel(this.level + 1);
+    this.state = 'playing';
+    this.ui.hide();
+    this.ui.toast(`Fase ${this.level}`);
+  }
+
+  pause() {
+    if (this.state !== 'playing') return;
+    this.state = 'paused';
+    this.input.reset();
+    this.ui.show('paused');
+  }
+
+  resume() {
+    if (this.state !== 'paused') return;
+    this.state = 'playing';
+    this.input.reset();
+    this.clock.getDelta();        // descarta o tempo em que ficou pausado
+    this.ui.hide();
+  }
+
+  togglePause() {
+    if (this.state === 'playing') this.pause();
+    else if (this.state === 'paused') this.resume();
+  }
+
+  _levelClear() {
+    const bonus = CONFIG.SCORE_LEVEL + Math.ceil(this.time) * CONFIG.SCORE_PER_SECOND;
+    this.score += bonus;
+    this.state = 'levelclear';
+    this.audio.levelClear();
+    this._saveBest();
+    this._updateHUD();
+    this.ui.show('levelclear', { level: this.level, bonus: `+${bonus}`, score: this.score });
+  }
+
+  _gameOver() {
+    this.state = 'gameover';
+    this.audio.gameOver();
+    const novoRecorde = this.score > this.best;
+    this._saveBest();
+    this.ui.show('gameover', {
+      level: this.level, score: this.score, best: this.best,
+      recordMsg: novoRecorde ? '★ Novo recorde! ★' : '',
+    });
+  }
+
+  _loadBest() {
+    try { return parseInt(localStorage.getItem(CHAVE_RECORDE), 10) || 0; } catch { return 0; }
+  }
+
+  _saveBest() {
+    if (this.score <= this.best) return;
+    this.best = this.score;
+    try { localStorage.setItem(CHAVE_RECORDE, String(this.best)); } catch { /* sem armazenamento */ }
   }
 
   /** Diz se uma célula pode ser ocupada por quem está andando. */
@@ -194,13 +300,21 @@ class Game {
       speed: 2.6, up: 3.6, life: 0.8, gravity: 12, spread: 0.5,
     });
     this.score += CONFIG.SCORE_BLOCK;
-    if (Math.random() < CONFIG.POWERUP_CHANCE) this.powerups.spawn(col, row);
+
+    if (this.map.isDoor(col, row)) {
+      // A porta de saída estava escondida sob este bloco.
+      this.map.revealDoor();
+      this.ui.toast(this.map.door.open ? 'Saída encontrada!' : 'Saída encontrada! Elimine os inimigos.');
+    } else if (Math.random() < CONFIG.POWERUP_CHANCE) {
+      this.powerups.spawn(col, row);
+    }
   }
 
   _onPowerUp(tipo) {
     this.player.applyPowerUp(tipo);
     this.score += CONFIG.SCORE_POWERUP;
     this.audio.powerUp();
+    this.ui.toast(POWERUP_LABELS[tipo], 900);
     const p = this.player.position;
     this.fire.emit(p.x, 0.5, p.z, {
       count: 14, colors: [0xffffff, 0xffe066, 0x7dffb0], speed: 1.8, up: 3, life: 0.55, gravity: 4,
@@ -225,12 +339,21 @@ class Game {
 
   _frame() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.state === 'playing') this._update(dt);
+
+    if (this.state === 'playing') {
+      this._update(dt);
+    } else if (this.state === 'menu') {
+      // Na tela inicial os inimigos passeiam pela arena ao fundo.
+      this.enemies.update(dt, (c, r) => this.canEnter(c, r), null);
+    }
+
     if (this.state !== 'paused') {
+      this.map.update(dt);
       this.fire.update(dt);
       this.debris.update(dt);
       this.flash.intensity = Math.max(0, this.flash.intensity - dt * 45);
     }
+
     this._updateCamera(dt);
     this.renderer.render(this.scene, this.camera);
   }
@@ -238,6 +361,12 @@ class Game {
   _update(dt) {
     const player = this.player;
     player.update(dt, this.input.directions(), (c, r) => this.canEnter(c, r));
+
+    // Jogador derrotado: espera a animação terminar e encerra o jogo.
+    if (player.dead) {
+      this.deathTimer += dt;
+      if (this.deathTimer > 1.5) { this._gameOver(); return; }
+    }
 
     // Bomba: colocada na célula do jogador, respeitando o limite simultâneo.
     if (this.input.consumeBomb() && !player.dead && this.bombs.count < player.maxBombs) {
@@ -267,6 +396,43 @@ class Game {
       const dx = e.mesh.position.x - player.position.x, dz = e.mesh.position.z - player.position.z;
       if (dx * dx + dz * dz < 0.36) this._hurtPlayer();
     }
+
+    if (!player.dead) {
+      // Porta de saída: abre quando não resta nenhum inimigo.
+      const door = this.map.door;
+      if (!door.open && this.enemies.aliveCount === 0) {
+        this.map.openDoor();
+        this.audio.doorOpen();
+        this.ui.toast(door.revealed ? 'A saída abriu!' : 'Inimigos eliminados! Encontre a saída.', 2400);
+      }
+      if (door.open && door.revealed && this.map.isDoor(player.col, player.row)) {
+        this._levelClear();
+        return;
+      }
+
+      // Relógio: se zerar, custa uma vida e devolve um pouco de tempo.
+      this.time -= dt;
+      if (this.time <= 0) {
+        this.time = CONFIG.TIME_OUT_EXTRA;
+        player.invulnerable = 0;
+        this._hurtPlayer();
+        this.ui.toast('Tempo esgotado!');
+      }
+    }
+
+    this._updateHUD();
+  }
+
+  _updateHUD() {
+    const p = this.player;
+    this.ui.setHUD({
+      lives: p.lives,
+      bombs: p.maxBombs,
+      range: p.range,
+      level: this.level,
+      time: this.time,
+      score: this.score,
+    });
   }
 
   _updateCamera(dt) {

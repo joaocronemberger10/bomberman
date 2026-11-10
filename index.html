@@ -23,6 +23,69 @@
 <body>
   <canvas id="game"></canvas>
 
+  <!-- HUD: vidas, bombas, alcance, fase, tempo e pontuação -->
+  <header id="hud">
+    <div class="hud-group">
+      <div class="chip" title="Vidas"><span class="ico">❤️</span><b id="hud-lives">3</b></div>
+      <div class="chip" title="Bombas"><span class="ico">💣</span><b id="hud-bombs">1</b></div>
+      <div class="chip" title="Alcance"><span class="ico">🔥</span><b id="hud-range">2</b></div>
+    </div>
+    <div class="hud-group">
+      <div class="chip" title="Fase"><span class="lbl">FASE</span><b id="hud-level">1</b></div>
+      <div class="chip" title="Tempo"><span class="ico">⏱️</span><b id="hud-time">3:00</b></div>
+      <div class="chip" title="Pontuação"><span class="ico">⭐</span><b id="hud-score">0</b></div>
+    </div>
+    <div class="hud-group">
+      <button id="btn-mute" class="icon-btn" data-action="mute" aria-label="Som">🔊</button>
+      <button id="btn-pause" class="icon-btn" data-action="pause" aria-label="Pausar">⏸</button>
+    </div>
+  </header>
+
+  <div id="toast" role="status"></div>
+
+  <!-- Telas: início, pausa, fase concluída e fim de jogo -->
+  <div id="overlay" class="visible">
+    <section class="screen active" data-screen="menu">
+      <h1 class="logo">BOOM<span>ARENA</span></h1>
+      <p class="tagline">Exploda os blocos, elimine os inimigos e encontre a saída!</p>
+      <button class="btn primary" data-action="play">Jogar</button>
+      <p class="record">Recorde: <b data-field="best">0</b></p>
+      <ul class="help">
+        <li class="only-keys"><kbd>Setas</kbd> ou <kbd>WASD</kbd> mover</li>
+        <li class="only-keys"><kbd>Espaço</kbd> bomba</li>
+        <li class="only-keys"><kbd>P</kbd> pausar</li>
+        <li class="only-touch">Joystick à esquerda para mover</li>
+        <li class="only-touch">Botão 💣 à direita para soltar bombas</li>
+      </ul>
+    </section>
+
+    <section class="screen" data-screen="paused">
+      <h2>Pausado</h2>
+      <button class="btn primary" data-action="resume">Continuar</button>
+      <button class="btn" data-action="restart">Reiniciar</button>
+    </section>
+
+    <section class="screen" data-screen="levelclear">
+      <h2>Fase <span data-field="level">1</span> concluída!</h2>
+      <dl class="stats">
+        <div><dt>Bônus de tempo</dt><dd data-field="bonus">0</dd></div>
+        <div><dt>Pontuação</dt><dd data-field="score">0</dd></div>
+      </dl>
+      <button class="btn primary" data-action="next">Próxima fase</button>
+    </section>
+
+    <section class="screen" data-screen="gameover">
+      <h2 class="bad">Fim de jogo</h2>
+      <p class="new-record" data-field="recordMsg"></p>
+      <dl class="stats">
+        <div><dt>Fase alcançada</dt><dd data-field="level">1</dd></div>
+        <div><dt>Pontuação</dt><dd data-field="score">0</dd></div>
+        <div><dt>Recorde</dt><dd data-field="best">0</dd></div>
+      </dl>
+      <button class="btn primary" data-action="restart">Jogar de novo</button>
+    </section>
+  </div>
+
   <script type="module" src="src/game.js"></script>
 </body>
 </html>

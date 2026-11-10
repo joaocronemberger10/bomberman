@@ -34,6 +34,7 @@ export class GameMap {
     this._buildGround();
     this._buildWalls();
     this._buildBlocks();
+    this._buildDoor();
   }
 
   // ------------------------------------------------------------------ grade
@@ -117,8 +118,54 @@ export class GameMap {
     return spawns;
   }
 
-  /** Gancho para etapas extras da geração (ex.: esconder a porta de saída). */
-  _afterGenerate(_celulasDistantes) {}
+  /** Esconde a porta de saída sob um bloco distante do jogador. */
+  _afterGenerate(celulasDistantes) {
+    const ehBloco = (c) => this.get(c.col, c.row) === CELL.BLOCK;
+    let opcoes = celulasDistantes.filter(ehBloco);
+    if (!opcoes.length) {
+      // Sem blocos distantes: aceita qualquer bloco da arena.
+      for (let row = 1; row < ROWS - 1; row++)
+        for (let col = 1; col < COLS - 1; col++)
+          if (ehBloco({ col, row })) opcoes.push({ col, row });
+    }
+    const escolhida = opcoes.length
+      ? opcoes[Math.floor(Math.random() * opcoes.length)]
+      : this.corners[3];                       // caso extremo: canto oposto, já visível
+    this.door = { col: escolhida.col, row: escolhida.row, revealed: !opcoes.length, open: false };
+
+    this.cellToWorld(this.door.col, this.door.row, this.doorMesh.position);
+    this.doorMesh.visible = this.door.revealed;
+    this.doorLuz.visible = false;
+    this.doorMat.color.set(0xff5d73);
+    this.doorMat.emissive.set(0x7a1020);
+  }
+
+  isDoor(col, row) { return !!this.door && this.door.col === col && this.door.row === row; }
+
+  /** Mostra a porta (chamado quando o bloco que a escondia é destruído). */
+  revealDoor() {
+    this.door.revealed = true;
+    this.doorMesh.visible = true;
+  }
+
+  /** Abre a porta (todos os inimigos foram eliminados). */
+  openDoor() {
+    this.door.open = true;
+    this.doorMat.color.set(0x5fe08a);
+    this.doorMat.emissive.set(0x1f9d4d);
+    this.doorLuz.visible = true;
+  }
+
+  /** Animações do cenário (porta pulsando). */
+  update(dt) {
+    this._t = (this._t || 0) + dt;
+    if (this.door && this.door.open) {
+      const k = 0.5 + 0.5 * Math.sin(this._t * 5);
+      this.doorMat.emissiveIntensity = 0.8 + k * 0.9;
+      this.doorLuz.material.opacity = 0.18 + k * 0.18;
+      this.doorLuz.rotation.y = this._t;
+    }
+  }
 
   /** Destrói um bloco destrutível. Devolve true se havia um bloco ali. */
   destroyBlock(col, row) {
@@ -218,6 +265,32 @@ export class GameMap {
     this.blocks.receiveShadow = true;
     this.blocks.frustumCulled = false;
     this.group.add(this.blocks);
+  }
+
+  _buildDoor() {
+    this.doorMesh = new THREE.Group();
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(0.86, 0.06, 0.86),
+      new THREE.MeshStandardMaterial({ color: 0x2a2f55, roughness: 0.6 })
+    );
+    base.position.y = 0.03;
+    base.receiveShadow = true;
+    // Disco central: vermelho (fechada) ou verde brilhante (aberta).
+    this.doorMat = new THREE.MeshStandardMaterial({ color: 0xff5d73, emissive: 0x7a1020, roughness: 0.4 });
+    const disco = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 24), this.doorMat);
+    disco.position.y = 0.07;
+    // Feixe de luz que aparece quando a porta abre.
+    this.doorLuz = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.3, 1.3, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x7dffb0, transparent: true, opacity: 0.25, depthWrite: false,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      })
+    );
+    this.doorLuz.position.y = 0.7;
+    this.doorMesh.add(base, disco, this.doorLuz);
+    this.doorMesh.visible = false;
+    this.group.add(this.doorMesh);
   }
 
   /** Atualiza as instâncias dos blocos conforme a grade. */
