@@ -100,7 +100,17 @@ export class GameMap {
       [longe[i], longe[j]] = [longe[j], longe[i]];
     }
     const spawns = longe.splice(0, enemyCount);
-    for (const s of spawns) this.grid[this.index(s.col, s.row)] = CELL.EMPTY;
+    for (const s of spawns) {
+      this.grid[this.index(s.col, s.row)] = CELL.EMPTY;
+      // Abre um pequeno corredor em volta, para o inimigo ter por onde andar.
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        for (let n = 1; n <= 2; n++) {
+          const i = this.index(s.col + dx * n, s.row + dz * n);
+          if (this.get(s.col + dx * n, s.row + dz * n) === CELL.WALL) break;
+          if (!safe.has(i)) this.grid[i] = CELL.EMPTY;
+        }
+      }
+    }
 
     this._afterGenerate(longe);
     this._refreshBlocks();

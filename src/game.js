@@ -9,6 +9,8 @@ import { Input } from './input.js';
 import { BombManager } from './bombs.js';
 import { ParticleSystem } from './particles.js';
 import { AudioFX } from './audio.js';
+import { PowerUpManager } from './powerups.js';
+import { EnemyManager } from './enemies.js';
 
 class Game {
   constructor() {
@@ -31,6 +33,10 @@ class Game {
       onExplosion: (col, row, cells) => this._onExplosion(col, row, cells),
       onBlockDestroyed: (col, row) => this._onBlockDestroyed(col, row),
     });
+
+    this.powerups = new PowerUpManager(this.scene, this.map);
+    this.enemies = new EnemyManager(this.scene, this.map);
+    this.score = 0;
 
     // Clarão das explosões (uma única luz reaproveitada).
     this.flash = new THREE.PointLight(0xffa640, 0, 9, 1.6);
@@ -149,7 +155,10 @@ class Game {
   loadLevel(level) {
     this.level = level;
     this.bombs.clear();
-    this.map.generate(0);
+    this.powerups.clear();
+    this.enemies.clear();
+    const qtd = Math.min(CONFIG.ENEMY_BASE_COUNT + CONFIG.ENEMY_PER_LEVEL * (level - 1), CONFIG.ENEMY_MAX);
+    this.enemies.spawn(this.map.generate(qtd), level);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
     this.input.reset();
@@ -183,6 +192,26 @@ class Game {
     this.debris.emit(p.x, 0.35, p.z, {
       count: 10, colors: [0xf2a03d, 0xd97f1e, 0xffc56b, 0x8a5a1e],
       speed: 2.6, up: 3.6, life: 0.8, gravity: 12, spread: 0.5,
+    });
+    this.score += CONFIG.SCORE_BLOCK;
+    if (Math.random() < CONFIG.POWERUP_CHANCE) this.powerups.spawn(col, row);
+  }
+
+  _onPowerUp(tipo) {
+    this.player.applyPowerUp(tipo);
+    this.score += CONFIG.SCORE_POWERUP;
+    this.audio.powerUp();
+    const p = this.player.position;
+    this.fire.emit(p.x, 0.5, p.z, {
+      count: 14, colors: [0xffffff, 0xffe066, 0x7dffb0], speed: 1.8, up: 3, life: 0.55, gravity: 4,
+    });
+  }
+
+  _onEnemyKilled(e) {
+    this.score += CONFIG.SCORE_ENEMY * this.enemies.kill(e);
+    this.audio.enemyDown();
+    this.fire.emit(e.mesh.position.x, 0.4, e.mesh.position.z, {
+      count: 16, colors: [e.type.color, 0xffffff], speed: 2.4, up: 3, life: 0.6, gravity: 6,
     });
   }
 
@@ -219,6 +248,25 @@ class Game {
 
     // Dano das chamas no jogador.
     if (this.bombs.isFlame(player.col, player.row)) this._hurtPlayer();
+
+    // Power-ups: coletados ao pisar na célula.
+    this.powerups.update(dt);
+    if (!player.dead) {
+      const tipo = this.powerups.collect(player.col, player.row);
+      if (tipo) this._onPowerUp(tipo);
+    }
+
+    // Inimigos: não entram em células com bomba nem com chamas.
+    this.enemies.update(dt,
+      (c, r) => this.canEnter(c, r) && !this.bombs.isFlame(c, r),
+      { col: player.col, row: player.row });
+    for (const e of this.enemies.enemies) {
+      if (!e.alive) continue;
+      if (this.bombs.isFlame(e.col, e.row)) { this._onEnemyKilled(e); continue; }
+      // Contato com o jogador causa dano.
+      const dx = e.mesh.position.x - player.position.x, dz = e.mesh.position.z - player.position.z;
+      if (dx * dx + dz * dz < 0.36) this._hurtPlayer();
+    }
   }
 
   _updateCamera(dt) {
