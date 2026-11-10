@@ -269,16 +269,40 @@ export class Player {
     );
   }
 
+  /**
+   * Mede a caixa envolvente real do modelo. Malhas com esqueleto precisam ter
+   * os ossos atualizados antes, senão a medida sai errada (o Meshy/Blender
+   * costuma exportar a armação com escala 0,01).
+   */
+  _measure(model, box = new THREE.Box3()) {
+    box.makeEmpty();
+    model.updateMatrixWorld(true);
+    const parcial = new THREE.Box3();
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.isSkinnedMesh) {
+        o.skeleton.update();
+        o.computeBoundingBox();          // considera a pose dos ossos
+        parcial.copy(o.boundingBox);
+      } else {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        parcial.copy(o.geometry.boundingBox);
+      }
+      box.union(parcial.applyMatrix4(o.matrixWorld));
+    });
+    return box;
+  }
+
   _useModel(gltf) {
     const model = gltf.scene;
 
     // Normaliza o tamanho: o modelo passa a ter PLAYER_HEIGHT * PLAYER_SCALE de
     // altura, fica centralizado na célula e com os pés no chão.
-    const box = new THREE.Box3().setFromObject(model);
+    const box = this._measure(model);
     const size = box.getSize(new THREE.Vector3());
     if (!(size.y > 0)) throw new Error('modelo sem dimensões válidas');
     model.scale.multiplyScalar((CONFIG.PLAYER_HEIGHT * PLAYER_SCALE) / size.y);
-    box.setFromObject(model);
+    this._measure(model, box);
     const center = box.getCenter(new THREE.Vector3());
     model.position.x -= center.x;
     model.position.z -= center.z;
