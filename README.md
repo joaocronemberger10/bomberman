@@ -22,7 +22,9 @@ Salve o modelo exportado do Meshy (formato **GLB**, com animações) em:
 assets/models/player.glb
 ```
 
-- Enquanto o arquivo não existir, o jogo usa um personagem provisório e funciona normalmente.
+- O repositório já traz um `player.glb` (gerado no Meshy, com as animações `Idle`, `Walk` e `Death`).
+  Para trocar de personagem, basta substituir o arquivo.
+- Se o arquivo não existir, o jogo usa um personagem provisório e funciona normalmente.
 - O modelo é redimensionado sozinho para caber em uma célula. Para ajustar, edite `src/config.js`:
   - `PLAYER_MODEL_PATH`: caminho do arquivo.
   - `PLAYER_SCALE`: escala extra (1 = tamanho padrão).

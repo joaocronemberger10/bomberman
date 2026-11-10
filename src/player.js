@@ -37,6 +37,7 @@ export class Player {
     this.currentAction = null;
     this.animState = 'idle';
     this.animTime = 0;
+    this.deathTimeScale = 1;   // acelera clipes de morte longos (veja _useModel)
 
     this.angle = 0;         // ângulo atual (para onde o personagem olha)
     this.targetAngle = 0;
@@ -208,7 +209,9 @@ export class Player {
     const alvo = this.actions[state];
     const atual = this.currentAction;
     if (alvo) {
-      alvo.timeScale = 1;
+      // A caminhada acompanha a velocidade do jogador; a morte cabe no tempo da cena.
+      alvo.timeScale = state === 'death' ? this.deathTimeScale
+        : state === 'walk' ? 1.3 * this.speed / CONFIG.PLAYER_SPEED : 1;
       if (alvo !== atual || force) {
         alvo.reset().fadeIn(0.15).play();
         if (atual && atual !== alvo) atual.fadeOut(0.15);
@@ -337,6 +340,8 @@ export class Player {
       if (this.actions.death) {
         this.actions.death.setLoop(THREE.LoopOnce, 1);
         this.actions.death.clampWhenFinished = true;
+        // O jogo espera ~1,5 s antes da tela de fim de jogo: clipes mais longos são acelerados.
+        this.deathTimeScale = Math.max(1, found.death.duration / 1.3);
       }
       console.info('[player] Animações encontradas:', clips.map((c) => c.name),
         '→ usadas:', Object.keys(this.actions));
