@@ -1,0 +1,44 @@
+/* ==========================================================================
+   Boom Arena — estilos (tela cheia, responsivo, pensado para celular)
+   ========================================================================== */
+:root {
+  --bg: #161a36;
+  --panel: rgba(22, 26, 54, 0.82);
+  --text: #f4f6ff;
+  --muted: #aab3e0;
+  --accent: #ffb02e;
+  --accent-2: #ff5d73;
+  --ok: #5fe08a;
+  --hud-h: 52px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Evita rolagem, zoom e seleção acidentais durante o jogo. */
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
