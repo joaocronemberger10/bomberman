@@ -3,16 +3,23 @@
 // Andam pela arena célula a célula e mudam de direção ao encontrar obstáculos
 // (ou, às vezes, em cruzamentos). Tipos mais difíceis aparecem nas fases
 // seguintes: um mais rápido e um que persegue o jogador.
+//
+// Cada tipo usa um modelo GLB próprio (veja ENEMY_MODEL_PATHS em config.js).
+// Enquanto o modelo carrega, ou se o arquivo não existir, o inimigo aparece
+// como um boneco provisório feito de formas simples.
 // ============================================================================
 import * as THREE from 'three';
-import { CONFIG, DIRS } from './config.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { CONFIG, DIRS, ENEMY_MODEL_PATHS } from './config.js';
 import { GridMover } from './mover.js';
+import { normalizeModel } from './model.js';
 
 /** Tipos de inimigo. `speed` multiplica a velocidade base da fase. */
 const TYPES = [
-  { name: 'gosma', color: 0xff5fa2, speed: 1.0, chase: 0, score: 1 },
-  { name: 'veloz', color: 0x35c8ff, speed: 1.45, chase: 0, score: 2 },
-  { name: 'cacador', color: 0xa46bff, speed: 1.2, chase: 0.65, score: 3 },
+  { name: 'flamengo', color: 0xe0202a, speed: 1.0, chase: 0, score: 1 },
+  { name: 'fluminense', color: 0x1f8a5b, speed: 1.45, chase: 0, score: 2 },
+  { name: 'botafogo', color: 0xe8e8f0, speed: 1.2, chase: 0.65, score: 3 },
 ];
 
 class Enemy {
@@ -41,11 +48,11 @@ class Enemy {
       pupila.position.set(x, 0.38, 0.32);
       g.add(olho, pupila);
     }
-    if (type.name === 'veloz') {
+    if (type === TYPES[1]) {
       const antena = new THREE.Mesh(shared.geoCone, shared.matEnfeite);
       antena.position.y = 0.66;
       g.add(antena);
-    } else if (type.name === 'cacador') {
+    } else if (type === TYPES[2]) {
       for (const x of [-0.17, 0.17]) {
         const chifre = new THREE.Mesh(shared.geoCone, shared.matEnfeite);
         chifre.position.set(x, 0.6, 0);
@@ -53,7 +60,25 @@ class Enemy {
         g.add(chifre);
       }
     }
-    this.mesh = g;
+    // mesh: posição/rotação na arena | visual: o que é desenhado (provisório ou GLB)
+    this.mesh = new THREE.Group();
+    this.visual = g;
+    this.mesh.add(g);
+    this.mixer = null;       // animação do modelo GLB (quando houver)
+  }
+
+  /** Troca o boneco provisório por uma cópia do modelo GLB do tipo. */
+  useModel(template) {
+    const copia = cloneSkinned(template.scene);
+    this.mesh.remove(this.visual);
+    this.visual = copia;
+    this.mesh.add(copia);
+    if (template.walk) {
+      this.mixer = new THREE.AnimationMixer(copia);
+      const acao = this.mixer.clipAction(template.walk);
+      acao.play();
+      acao.time = Math.random() * template.walk.duration;   // cada um num passo diferente
+    }
   }
 
   get col() { return this.mover.cellCol; }
@@ -76,6 +101,27 @@ export class EnemyManager {
       matEnfeite: mat(0xffe066),
       materials: Object.fromEntries(TYPES.map((t) => [t.name, mat(t.color)])),
     };
+
+    // Modelos GLB por tipo: { scene, walk }. Preenchido conforme carregam.
+    this.templates = {};
+    const loader = new GLTFLoader();
+    for (const type of TYPES) {
+      const path = ENEMY_MODEL_PATHS[type.name];
+      if (!path) continue;
+      loader.load(path, (gltf) => {
+        try {
+          const clips = gltf.animations || [];
+          this.templates[type.name] = {
+            scene: normalizeModel(gltf.scene, CONFIG.ENEMY_HEIGHT),
+            walk: clips.find((c) => /walk|run|andar|corr/i.test(c.name)) || clips[0] || null,
+          };
+          // Atualiza os inimigos desse tipo que já estão na arena.
+          for (const e of this.enemies) if (e.type === type && e.alive) e.useModel(this.templates[type.name]);
+        } catch (err) {
+          console.warn(`[enemies] Falha ao preparar "${path}"; usando o provisório.`, err);
+        }
+      }, undefined, () => console.info(`[enemies] "${path}" não encontrado — usando o inimigo provisório.`));
+    }
   }
 
   /** Quantos inimigos ainda estão vivos. */
@@ -90,6 +136,7 @@ export class EnemyManager {
     const maxTipo = Math.min(TYPES.length - 1, level - 1);   // fase 1: só o básico
     cells.forEach((c, i) => {
       const e = new Enemy(TYPES[i % (maxTipo + 1)], c.col, c.row, base, this.shared);
+      if (this.templates[e.type.name]) e.useModel(this.templates[e.type.name]);
       this.scene.add(e.mesh);
       this.enemies.push(e);
       this._sync(e);
@@ -123,10 +170,15 @@ export class EnemyManager {
       this._move(e, dt, canEnter, alvo);
       this._sync(e);
 
-      // "Pulinhos" enquanto anda.
-      const pulo = Math.abs(Math.sin(e.t * 7));
-      e.mesh.position.y = pulo * 0.08;
-      e.mesh.scale.set(1 + (1 - pulo) * 0.08, 0.92 + pulo * 0.12, 1 + (1 - pulo) * 0.08);
+      if (e.mixer) {
+        // Modelo GLB: a caminhada acompanha a velocidade e para quando ele espera.
+        e.mixer.update(e.mover.moving ? dt * e.speed / CONFIG.ENEMY_SPEED * 1.15 : 0);
+      } else {
+        // Provisório: "pulinhos" enquanto anda.
+        const pulo = Math.abs(Math.sin(e.t * 7));
+        e.mesh.position.y = pulo * 0.08;
+        e.mesh.scale.set(1 + (1 - pulo) * 0.08, 0.92 + pulo * 0.12, 1 + (1 - pulo) * 0.08);
+      }
       let diff = Math.atan2(e.mover.dirX, e.mover.dirZ) - e.angle;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       e.angle += diff * Math.min(1, dt * 10);

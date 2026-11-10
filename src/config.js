@@ -15,6 +15,16 @@ export const PLAYER_MODEL_PATH = 'assets/models/player.glb';
 /** Escala extra do modelo. 1 = altura padrão (PLAYER_HEIGHT). Aumente/diminua à vontade. */
 export const PLAYER_SCALE = 1.0;
 
+/**
+ * Modelos dos inimigos (um por tipo). Se um arquivo não existir, aquele tipo
+ * usa um inimigo provisório feito de formas simples.
+ */
+export const ENEMY_MODEL_PATHS = {
+  flamengo: 'assets/models/enemy_flamengo.glb',      // tipo básico
+  fluminense: 'assets/models/enemy_fluminense.glb',  // tipo veloz (a partir da fase 2)
+  botafogo: 'assets/models/enemy_botafogo.glb',      // tipo caçador (a partir da fase 3)
+};
+
 export const CONFIG = {
   // --- Arena -----------------------------------------------------------------
   COLS: 15,                 // largura da grade (inclui as paredes da borda)
@@ -24,7 +34,7 @@ export const CONFIG = {
   // --- Jogador ---------------------------------------------------------------
   PLAYER_MODEL_PATH,
   PLAYER_SCALE,
-  PLAYER_HEIGHT: 0.95,          // altura (em células) para a qual o modelo é normalizado
+  PLAYER_HEIGHT: 1.25,          // altura (em células) para a qual o modelo é normalizado
   PLAYER_ROTATION_OFFSET: 0,    // radianos; use Math.PI se o modelo aparecer "de costas"
   PLAYER_SPEED: 3.6,            // células por segundo
   PLAYER_SPEED_BONUS: 0.45,     // ganho por power-up de velocidade
@@ -47,6 +57,7 @@ export const CONFIG = {
   POWERUP_WEIGHTS: { bomb: 3, range: 3, speed: 2, life: 1 },  // raridade relativa
 
   // --- Inimigos --------------------------------------------------------------
+  ENEMY_HEIGHT: 1.2,            // altura (em células) dos modelos dos inimigos
   ENEMY_BASE_COUNT: 3,          // inimigos na fase 1
   ENEMY_PER_LEVEL: 1,           // inimigos extras por fase
   ENEMY_MAX: 10,

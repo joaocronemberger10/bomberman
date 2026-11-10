@@ -32,6 +32,20 @@ assets/models/player.glb
 - As animações são encontradas pelo nome, sem diferenciar maiúsculas: `idle`, `walk`/`run` e `death`/`die`.
   Se o arquivo tiver uma única animação, ela é usada para andar. O que faltar é animado por código.
 
+### Inimigos
+
+Cada tipo de inimigo tem o seu próprio modelo em `assets/models/` (os caminhos ficam em
+`ENEMY_MODEL_PATHS`, no `src/config.js`), e só precisa de uma animação de caminhada:
+
+| Arquivo | Tipo | Aparece |
+| ------- | ---- | ------- |
+| `enemy_flamengo.glb` | básico | desde a fase 1 |
+| `enemy_fluminense.glb` | veloz | a partir da fase 2 |
+| `enemy_botafogo.glb` | caçador (persegue o jogador) | a partir da fase 3 |
+
+Se um arquivo faltar, aquele tipo usa um inimigo provisório. A altura dos modelos se ajusta em
+`ENEMY_HEIGHT` (inimigos) e `PLAYER_HEIGHT` (jogador).
+
 ## Controles
 
 | Ação   | Teclado          | Celular                 |
@@ -52,13 +66,14 @@ src/game.js       cena, câmera, regras e laço principal
 src/map.js        arena: grade, paredes, blocos e porta de saída
 src/player.js     jogador: modelo GLB, animações e movimento
 src/bombs.js      bombas, explosões e reação em cadeia
-src/enemies.js    inimigos e IA
+src/enemies.js    inimigos (modelos GLB) e IA
+src/model.js      ajuste de tamanho dos modelos GLB
 src/powerups.js   power-ups
 src/particles.js  partículas das explosões
 src/audio.js      sons gerados com WebAudio
 src/input.js      teclado e controles de toque
 src/mover.js      movimento em grade com deslizamento suave
 src/ui.js         HUD, telas e avisos
-assets/models/    coloque aqui o player.glb
+assets/models/    player.glb e os modelos dos inimigos
 assets/sounds/    reservado (os sons atuais são gerados por código)
 ```
