@@ -10,7 +10,8 @@ Jogo de arena com bombas em 3D para navegador, feito com HTML + JavaScript puro 
 3. Em **Branch**, selecione **main** e a pasta **/ (root)**, e clique em **Save**.
 4. Aguarde cerca de um minuto. O jogo ficará em `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/`.
 
-> O código precisa estar no branch `main` (faça o merge do pull request antes).
+> O código precisa estar no branch escolhido. Se ele ainda estiver em outro branch, leve-o para o
+> `main` primeiro (ou selecione esse outro branch no passo 3).
 > Abrir o `index.html` direto do disco (`file://`) não funciona, porque módulos ES exigem um servidor.
 
 ## Onde colocar o personagem (`player.glb`)
