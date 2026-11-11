@@ -206,6 +206,7 @@ export class EnemyManager {
    *   danger              mapa de perigo (Float32Array) ou null
    *   player              { col, row, dead } ou null
    *   placeBomb(enemy)    pede ao jogo para o rival soltar uma bomba
+   *   terrain             perigos do cenário: speedFactor(col,row) e isIce(col,row)
    */
   update(dt, ctx) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -252,15 +253,25 @@ export class EnemyManager {
     const m = e.mover;
     if (e.wait > 0 && !m.moving) { e.wait -= dt; return; }
 
-    let resto = e.speed * (e.charging ? e.type.charge : 1) * dt;
+    // Terreno do cenário (lama, gelo): vale para todos, menos o fantasma.
+    const terrain = e.type.ghost ? null : ctx.terrain;
+    let resto = e.speed * (e.charging ? e.type.charge : 1) * dt *
+      (terrain ? terrain.speedFactor(m.cellCol, m.cellRow) : 1);
     let guarda = 0;
     while (resto > 1e-6 && guarda++ < 3) {
       if (!m.moving) {
-        const d = e.kind === 'rival' ? this._rivalThink(e, ctx) : this._monsterThink(e, ctx);
+        let d;
+        if (e.sliding && ctx.canEnter(m.col + m.dirX, m.row + m.dirZ)) {
+          d = { dx: m.dirX, dz: m.dirZ };      // escorregando no gelo
+        } else {
+          e.sliding = false;
+          d = e.kind === 'rival' ? this._rivalThink(e, ctx) : this._monsterThink(e, ctx);
+        }
         if (!d) { e.wait = 0.15; e.charging = false; return; }   // sem saída segura: espera
         m.start(d.dx, d.dz);
       }
       resto = m.advance(resto);
+      if (!m.moving) e.sliding = !!terrain && terrain.isIce(m.col, m.row);
     }
   }
 

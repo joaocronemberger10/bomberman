@@ -219,6 +219,11 @@ export class BombManager {
     }
   }
 
+  /** Cria uma chama avulsa em uma célula (ex.: bola de fogo do vulcão). */
+  addFlame(col, row) {
+    this._addFlame({ col, row, dx: 0, dz: 0 }, { owner: null, type: 'normal' });
+  }
+
   /** Remove todas as bombas e chamas (troca de fase / reinício). */
   clear() {
     for (const b of this.bombs) { this.scene.remove(b.mesh); b.mat.dispose(); }

@@ -77,6 +77,17 @@ export class AudioFX {
     this._tone(110, 0.45, { type: 'sine', vol: 0.6, slide: -80 });
   }
 
+  /** Impacto de bola de fogo (explosão mais curta). */
+  impact() {
+    this._noise(0.3, { vol: 0.45, from: 1200, to: 150 });
+    this._tone(90, 0.25, { type: 'sine', vol: 0.4, slide: -50 });
+  }
+
+  /** Dano causado por um perigo do cenário. */
+  zap() {
+    this._tone(900, 0.12, { type: 'sawtooth', vol: 0.2, slide: -700 });
+  }
+
   placeBomb() {
     this._tone(420, 0.09, { type: 'triangle', vol: 0.3, slide: -200 });
   }

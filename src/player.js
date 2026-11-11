@@ -63,6 +63,7 @@ export class Player {
   /** Coloca o jogador em uma célula (início de fase). */
   place(col, row) {
     this.mover.setCell(col, row);
+    this.sliding = false;      // escorregando no gelo
     this.dead = false;
     this.deathTime = 0;
     this.targetAngle = this.angle = 0;
@@ -122,14 +123,15 @@ export class Player {
    * @param {number} dt segundos desde o último quadro
    * @param {Array<{dx:number,dz:number}>} dirs direções desejadas (por prioridade)
    * @param {(col:number,row:number)=>boolean} canEnter diz se uma célula está livre
+   * @param {object} [terrain] perigos do cenário: speedFactor(col,row) e isIce(col,row)
    */
-  update(dt, dirs, canEnter) {
+  update(dt, dirs, canEnter, terrain = null) {
     this.animTime += dt;
 
     if (this.dead) {
       this.deathTime += dt;
     } else {
-      this._move(dt, dirs, canEnter);
+      this._move(dt, dirs, canEnter, terrain);
       if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt);
     }
 
@@ -140,20 +142,28 @@ export class Player {
     this._animate(dt);
   }
 
-  _move(dt, dirs, canEnter) {
+  _move(dt, dirs, canEnter, terrain) {
     const m = this.mover;
 
-    // Meia-volta imediata se o jogador apertar a direção oposta.
-    if (m.moving && dirs.length) {
+    // Meia-volta imediata se o jogador apertar a direção oposta (não vale no gelo).
+    if (m.moving && dirs.length && !this.sliding) {
       const d = dirs[0];
       if (d.dx === -m.dirX && d.dz === -m.dirZ && canEnter(m.col, m.row)) m.reverse();
     }
 
-    let resto = this.speed * dt;
+    // Terreno: lama deixa lento, gelo acelera.
+    let resto = this.speed * dt * (terrain ? terrain.speedFactor(m.cellCol, m.cellRow) : 1);
     let guarda = 0;
     while (resto > 1e-6 && guarda++ < 4) {
       if (!m.moving) {
-        const d = dirs.find((d) => canEnter(m.col + d.dx, m.row + d.dz));
+        let d;
+        if (this.sliding && canEnter(m.col + m.dirX, m.row + m.dirZ)) {
+          // No gelo: continua escorregando na mesma direção, sem controle.
+          d = { dx: m.dirX, dz: m.dirZ };
+        } else {
+          this.sliding = false;
+          d = dirs.find((d) => canEnter(m.col + d.dx, m.row + d.dz));
+        }
         if (!d) {
           if (dirs[0]) this._face(dirs[0].dx, dirs[0].dz);   // olha para a parede
           break;
@@ -162,9 +172,11 @@ export class Player {
       }
       this._face(m.dirX, m.dirZ);
       resto = m.advance(resto);
+      // Chegou a uma célula de gelo andando: começa (ou continua) a escorregar.
+      if (!m.moving) this.sliding = !!terrain && terrain.isIce(m.col, m.row);
     }
 
-    this._setAnim(m.moving ? 'walk' : 'idle');
+    this._setAnim(m.moving && !this.sliding ? 'walk' : 'idle');
   }
 
   _face(dx, dz) {

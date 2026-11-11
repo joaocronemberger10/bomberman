@@ -53,6 +53,20 @@ São **12 fases** e o cenário muda a cada uma, passando por 6 cenários (Gramad
 Geleira, Noite Neon, Doceria e Vulcão) duas vezes. A cada fase há mais inimigos, mais rápidos e
 com bombas mais fortes. Vencer a fase 12 zera o jogo.
 
+Cada cenário tem um perigo próprio:
+
+| Cenário | Perigo |
+| ------- | ------ |
+| Gramado | poças de lama: quem pisa anda devagar |
+| Deserto | espinhos que sobem da areia de tempos em tempos |
+| Geleira | poças de gelo: quem entra escorrega sem controle |
+| Noite Neon | lasers que piscam (aviso) e depois ligam ao longo de corredores |
+| Doceria | balas gigantes que rolam pela arena |
+| Vulcão | bolas de fogo que caem do céu, com aviso no chão, e destroem blocos |
+
+Lama e gelo afetam todos. Espinhos, lasers e balas ferem o jogador e eliminam rivais. As bolas de
+fogo atingem qualquer um. Na segunda volta (fases 7 a 12) os perigos são mais numerosos.
+
 - **Rivais** soltam bombas perto de blocos, do jogador e dos monstros, e fogem das explosões.
 - **Monstros** atacam qualquer um: o contato fere o jogador e elimina rivais.
   - Gosma: anda devagar (desde a fase 1).
@@ -87,6 +101,7 @@ src/map.js        arena: grade, paredes, blocos e porta de saída
 src/player.js     jogador: modelo GLB, animações e movimento
 src/bombs.js      bombas, explosões e reação em cadeia
 src/enemies.js    rivais (modelos GLB), monstros e IA
+src/hazards.js    perigos de cada cenário (lama, espinhos, gelo, lasers, balas, bolas de fogo)
 src/model.js      ajuste de tamanho dos modelos GLB
 src/powerups.js   power-ups
 src/particles.js  partículas das explosões

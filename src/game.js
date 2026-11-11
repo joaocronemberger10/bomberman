@@ -20,6 +20,7 @@ import { AudioFX } from './audio.js';
 import { PowerUpManager, POWERUP_LABELS } from './powerups.js';
 import { EnemyManager } from './enemies.js';
 import { UI } from './ui.js';
+import { HazardManager } from './hazards.js';
 
 const CHAVE_RECORDE = 'boom-arena-recorde';
 
@@ -39,6 +40,11 @@ class Game {
     this.bombs = new BombManager(this.scene, this.map, {
       onExplosion: (bomb, cells) => this._onExplosion(bomb, cells),
       onBlockDestroyed: (col, row, bomb) => this._onBlockDestroyed(col, row, bomb),
+    });
+
+    // Perigos típicos de cada cenário (lama, espinhos, gelo, lasers, balas, bolas de fogo).
+    this.hazards = new HazardManager(this.scene, this.map, {
+      onImpact: (col, row) => this._onFireball(col, row),
     });
 
     // Partículas: fogo (brilho aditivo) e destroços dos blocos (normal).
@@ -201,7 +207,8 @@ class Game {
   }
 
   _announceLevel() {
-    this.ui.toast(`Fase ${this.level} — ${this.setup.theme.name}`, 2200);
+    const t = this.setup.theme;
+    this.ui.toast(`Fase ${this.level} — ${t.name}. ${t.tip}`, 3200);
   }
 
   /** No celular, tenta entrar em tela cheia (nem todo navegador permite). */
@@ -229,7 +236,9 @@ class Game {
     this.map.setTheme(setup.theme);
     this.scene.background.set(setup.theme.background);
     const qtd = setup.rivals.length + setup.monsters.length;
-    this.enemies.spawn(this.map.generate(qtd, setup.blockDensity), setup);
+    const nascimentos = this.map.generate(qtd, setup.blockDensity);
+    this.enemies.spawn(nascimentos, setup);
+    this.hazards.setup(setup.theme.hazard, setup.hazardLevel, nascimentos);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
     this.player.invulnerable = 0;
@@ -313,6 +322,13 @@ class Game {
     try { localStorage.setItem(CHAVE_RECORDE, String(this.best)); } catch { /* sem armazenamento */ }
   }
 
+  /** Mapa de perigo para a IA: explosões + perigos do cenário. */
+  _dangerMap() {
+    const danger = this.bombs.computeDanger();
+    this.hazards.addDanger(danger);
+    return danger;
+  }
+
   /** Diz se uma célula pode ser ocupada por quem está andando. */
   canEnter(col, row) {
     return this.map.isEmpty(col, row) && !this.bombs.hasBomb(col, row);
@@ -351,6 +367,18 @@ class Game {
     } else if (Math.random() < CONFIG.POWERUP_CHANCE) {
       this.powerups.spawn(col, row);
     }
+  }
+
+  /** Uma bola de fogo do vulcão caiu: vira chama, destrói bloco e faz barulho. */
+  _onFireball(col, row) {
+    if (this.map.destroyBlock(col, row)) this._onBlockDestroyed(col, row, null);
+    this.bombs.addFlame(col, row);
+    this.audio.impact();
+    this.shake = Math.min(1.4, this.shake + 0.35);
+    const p = this.map.cellToWorld(col, row);
+    this.fire.emit(p.x, 0.35, p.z, {
+      count: 16, colors: [0xffe27a, 0xffa530, 0xff5a1f, 0xff3b1f], speed: 2.6, up: 3.2, life: 0.6, gravity: 4, spread: 0.5,
+    });
   }
 
   _onPowerUp(tipo) {
@@ -405,7 +433,8 @@ class Game {
 
   _update(dt) {
     const player = this.player;
-    player.update(dt, this.input.directions(), (c, r) => this.canEnter(c, r));
+    const hazards = this.hazards;
+    player.update(dt, this.input.directions(), (c, r) => this.canEnter(c, r), hazards);
 
     // Jogador derrotado: espera a animação terminar e encerra o jogo.
     if (player.dead) {
@@ -446,12 +475,23 @@ class Game {
       if (tipo) this._onPowerUp(tipo);
     }
 
+    // Perigos do cenário: ferem o jogador e eliminam rivais.
+    hazards.update(dt, {
+      canEnter: (c, r) => this.canEnter(c, r),
+      player: { col: player.col, row: player.row, dead: player.dead },
+    });
+    if (!player.dead && player.invulnerable <= 0 && hazards.hits(player.col, player.row)) {
+      this.audio.zap();
+      this._hurtPlayer();
+    }
+
     // Inimigos. Os rivais usam o mapa de perigo para fugir das explosões e
     // pedem ao jogo para soltar as próprias bombas.
     this.enemies.update(dt, {
       canEnter: (c, r) => this.canEnter(c, r),
       bombs: this.bombs,
-      danger: this.bombs.computeDanger(),
+      danger: this._dangerMap(),
+      terrain: hazards,
       player: { col: player.col, row: player.row, dead: player.dead },
       placeBomb: (e) => {
         if (this.bombs.place(e.col, e.row, e.range, { owner: e })) this.audio.placeBomb();
@@ -466,7 +506,10 @@ class Game {
         this._onEnemyKilled(e, this.bombs.flameOwner(e.col, e.row) === player);
         continue;
       }
-      if (e.kind !== 'monster') continue;
+      if (e.kind !== 'monster') {
+        if (hazards.hits(e.col, e.row)) this._onEnemyKilled(e, false);   // rival pego pelo cenário
+        continue;
+      }
       // Monstros atacam qualquer um: ferem o jogador e eliminam rivais.
       const ex = e.mesh.position.x, ez = e.mesh.position.z;
       const dx = ex - player.position.x, dz = ez - player.position.z;

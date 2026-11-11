@@ -109,10 +109,12 @@ export const DIRS = [
  * Cenários (mundos). A cada LEVELS_PER_WORLD fases o jogo passa ao próximo;
  * depois do último, a lista recomeça (com a dificuldade ainda subindo).
  * Todas as cores podem ser trocadas à vontade.
+ * `hazard` é o perigo típico do cenário (veja hazards.js) e `tip` o aviso da fase.
  */
 export const THEMES = [
   {
     name: 'Gramado',
+    hazard: 'mud', tip: 'A lama deixa todo mundo lento.',
     background: 0x161a36, base: 0x39457e,
     floor: ['#74d680', '#63c871'],
     wall: 0x4f63d2, wallTop: 0x7d92ff, border: 0x3b4a9c, borderTop: 0x5567c9,
@@ -121,6 +123,7 @@ export const THEMES = [
   },
   {
     name: 'Deserto',
+    hazard: 'spikes', tip: 'Cuidado com os espinhos na areia!',
     background: 0x2b1a12, base: 0x8a5a33,
     floor: ['#f0d58a', '#e6c673'],
     wall: 0xb5532f, wallTop: 0xde7a4c, border: 0x8c3d22, borderTop: 0xb86039,
@@ -129,6 +132,7 @@ export const THEMES = [
   },
   {
     name: 'Geleira',
+    hazard: 'ice', tip: 'O gelo escorrega!',
     background: 0x0c2238, base: 0x3f6f96,
     floor: ['#d9f1ff', '#c2e6fb'],
     wall: 0x5f8fbf, wallTop: 0xf4fbff, border: 0x44709c, borderTop: 0xd3ebfa,
@@ -137,6 +141,7 @@ export const THEMES = [
   },
   {
     name: 'Noite Neon',
+    hazard: 'laser', tip: 'Fuja dos lasers quando piscarem!',
     background: 0x07041a, base: 0x1a1140,
     floor: ['#2a2360', '#241d55'],
     wall: 0x3a1f8f, wallTop: 0xff3fd0, border: 0x24125e, borderTop: 0x38e8ff,
@@ -145,6 +150,7 @@ export const THEMES = [
   },
   {
     name: 'Doceria',
+    hazard: 'balls', tip: 'Não encoste nas balas gigantes!',
     background: 0x3a1230, base: 0xa8477f,
     floor: ['#ffe9f2', '#ffd6e8'],
     wall: 0xe0559a, wallTop: 0xfff3a8, border: 0xb53a7c, borderTop: 0xffc9e2,
@@ -153,6 +159,7 @@ export const THEMES = [
   },
   {
     name: 'Vulcão',
+    hazard: 'meteor', tip: 'Bolas de fogo caem do céu!',
     background: 0x1a0705, base: 0x2b1a1a,
     floor: ['#55484a', '#4a3e40'],
     wall: 0x2a2428, wallTop: 0xff5a2a, border: 0x1c181b, borderTop: 0xc23a18,
@@ -187,6 +194,7 @@ export function levelSetup(level) {
   return {
     theme,
     world: mundo + 1,
+    hazardLevel: level > THEMES.length ? 2 : 1,           // perigos do cenário mais fortes na 2ª volta
     rivals,
     monsters,
     speed: Math.min(CONFIG.ENEMY_SPEED + CONFIG.ENEMY_SPEED_PER_LEVEL * (level - 1), CONFIG.ENEMY_SPEED_MAX),
