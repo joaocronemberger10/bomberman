@@ -79,7 +79,7 @@ export const CONFIG = {
 
   // --- Fases e pontuação -----------------------------------------------------
   TOTAL_LEVELS: 12,             // ao vencer a última fase, o jogo é zerado
-  LEVELS_PER_WORLD: 3,          // a cada 3 fases o cenário muda
+  LEVELS_PER_WORLD: 1,          // de quantas em quantas fases o cenário muda
   LEVEL_TIME: 180,              // segundos por fase
   TIME_OUT_EXTRA: 60,           // tempo devolvido quando o relógio zera (custa 1 vida)
   SCORE_BLOCK: 10,
@@ -106,7 +106,8 @@ export const DIRS = [
 ];
 
 /**
- * Cenários (mundos). A cada LEVELS_PER_WORLD fases o jogo passa ao próximo.
+ * Cenários (mundos). A cada LEVELS_PER_WORLD fases o jogo passa ao próximo;
+ * depois do último, a lista recomeça (com a dificuldade ainda subindo).
  * Todas as cores podem ser trocadas à vontade.
  */
 export const THEMES = [
@@ -133,6 +134,22 @@ export const THEMES = [
     wall: 0x5f8fbf, wallTop: 0xf4fbff, border: 0x44709c, borderTop: 0xd3ebfa,
     block: ['#7fd3f0', '#4aa8d6', '#e6faff'],
     debris: [0x7fd3f0, 0x4aa8d6, 0xe6faff, 0xffffff],
+  },
+  {
+    name: 'Noite Neon',
+    background: 0x07041a, base: 0x1a1140,
+    floor: ['#2a2360', '#241d55'],
+    wall: 0x3a1f8f, wallTop: 0xff3fd0, border: 0x24125e, borderTop: 0x38e8ff,
+    block: ['#1fb8c9', '#127886', '#aef6ff'],
+    debris: [0x1fb8c9, 0x127886, 0xaef6ff, 0xff3fd0],
+  },
+  {
+    name: 'Doceria',
+    background: 0x3a1230, base: 0xa8477f,
+    floor: ['#ffe9f2', '#ffd6e8'],
+    wall: 0xe0559a, wallTop: 0xfff3a8, border: 0xb53a7c, borderTop: 0xffc9e2,
+    block: ['#8b5a3c', '#6a3f27', '#f6d7b0'],
+    debris: [0x8b5a3c, 0x6a3f27, 0xf6d7b0, 0xffffff],
   },
   {
     name: 'Vulcão',
@@ -176,6 +193,6 @@ export function levelSetup(level) {
     rivalRange: 2 + Math.floor((level - 1) / 4),          // alcance das bombas dos rivais
     rivalBombs: level >= 6 ? 2 : 1,                       // bombas simultâneas de cada rival
     rivalBombDelay: Math.max(CONFIG.RIVAL_BOMB_DELAY - 0.22 * (level - 1), CONFIG.RIVAL_BOMB_DELAY_MIN),
-    blockDensity: Math.max(CONFIG.BLOCK_DENSITY - 0.02 * mundo, 0.6),
+    blockDensity: Math.max(CONFIG.BLOCK_DENSITY - 0.01 * (level - 1), 0.6),
   };
 }

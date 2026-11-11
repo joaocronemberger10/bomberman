@@ -49,8 +49,9 @@ Se um arquivo faltar, aquele rival usa um boneco provisório. A altura dos model
 ## Como se joga
 
 Elimine todos os rivais e monstros para abrir a saída, que fica escondida sob um dos blocos.
-São **12 fases em 4 cenários** (Gramado, Deserto, Geleira e Vulcão, 3 fases cada); a cada fase
-há mais inimigos, mais rápidos e com bombas mais fortes. Vencer a fase 12 zera o jogo.
+São **12 fases** e o cenário muda a cada uma, passando por 6 cenários (Gramado, Deserto,
+Geleira, Noite Neon, Doceria e Vulcão) duas vezes. A cada fase há mais inimigos, mais rápidos e
+com bombas mais fortes. Vencer a fase 12 zera o jogo.
 
 - **Rivais** soltam bombas perto de blocos, do jogador e dos monstros, e fogem das explosões.
 - **Monstros** atacam qualquer um: o contato fere o jogador e elimina rivais.
