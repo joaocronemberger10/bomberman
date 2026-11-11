@@ -55,6 +55,7 @@ export class Player {
     this.maxBombs = CONFIG.PLAYER_BOMBS;
     this.range = CONFIG.PLAYER_RANGE;
     this.speed = CONFIG.PLAYER_SPEED;
+    this.special = null;       // bomba especial em uso: { type, ammo }
     this.invulnerable = 0;
     this.dead = false;
   }
@@ -100,6 +101,19 @@ export class Player {
     else if (type === 'range') this.range = Math.min(this.range + 1, CONFIG.PLAYER_MAX_RANGE);
     else if (type === 'speed') this.speed = Math.min(this.speed + CONFIG.PLAYER_SPEED_BONUS, CONFIG.PLAYER_SPEED_MAX);
     else if (type === 'life') this.lives = Math.min(this.lives + 1, CONFIG.PLAYER_MAX_LIVES);
+    else if (CONFIG.SPECIAL_AMMO[type]) {
+      // Bomba especial: soma munição se for do mesmo tipo, senão troca.
+      const atual = this.special && this.special.type === type ? this.special.ammo : 0;
+      this.special = { type, ammo: atual + CONFIG.SPECIAL_AMMO[type] };
+    }
+  }
+
+  /** Tipo da próxima bomba; gasta uma unidade da munição especial, se houver. */
+  takeBombType() {
+    if (!this.special) return 'normal';
+    const type = this.special.type;
+    if (--this.special.ammo <= 0) this.special = null;
+    return type;
   }
 
   // ------------------------------------------------------------- atualização

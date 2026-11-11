@@ -324,3 +324,33 @@ body.touch.in-game #touch { display: block; }
 @media (orientation: portrait) {
   body.touch .only-portrait { display: list-item !important; flex-basis: 100%; color: var(--accent); }
 }
+
+/* -------------------------------------------- bombas especiais e detonador */
+.chip.special { border-color: var(--accent); color: var(--accent); }
+.chip[hidden] { display: none; }
+
+#btn-detonate {
+  position: fixed;
+  right: calc(34px + var(--safe-r));
+  bottom: calc(160px + var(--safe-b));
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(to bottom, #5aa2ff, #1d5fd1);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 0 #123a85;
+  z-index: 4;
+  touch-action: none;
+}
+#btn-detonate[hidden] { display: none; }
+#btn-detonate:active { transform: translateY(3px); box-shadow: 0 1px 0 #123a85; }
+@media (orientation: landscape) and (max-height: 520px) {
+  #btn-detonate { bottom: calc(128px + var(--safe-b)); right: calc(24px + var(--safe-r)); padding: 9px 13px; }
+}
+@media (max-width: 560px) {
+  .chip.special { font-size: 11px; }
+}

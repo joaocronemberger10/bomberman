@@ -32,19 +32,39 @@ assets/models/player.glb
 - As animações são encontradas pelo nome, sem diferenciar maiúsculas: `idle`, `walk`/`run` e `death`/`die`.
   Se o arquivo tiver uma única animação, ela é usada para andar. O que faltar é animado por código.
 
-### Inimigos
+### Rivais
 
-Cada tipo de inimigo tem o seu próprio modelo em `assets/models/` (os caminhos ficam em
-`ENEMY_MODEL_PATHS`, no `src/config.js`), e só precisa de uma animação de caminhada:
+Os rivais usam modelos próprios em `assets/models/` (caminhos em `ENEMY_MODEL_PATHS`, no
+`src/config.js`) e só precisam de uma animação de caminhada:
 
-| Arquivo | Tipo | Aparece |
-| ------- | ---- | ------- |
+| Arquivo | Comportamento | Aparece |
+| ------- | ------------- | ------- |
 | `enemy_flamengo.glb` | básico | desde a fase 1 |
-| `enemy_fluminense.glb` | veloz | a partir da fase 2 |
-| `enemy_botafogo.glb` | caçador (persegue o jogador) | a partir da fase 3 |
+| `enemy_fluminense.glb` | mais rápido | a partir da fase 2 |
+| `enemy_botafogo.glb` | persegue o jogador | a partir da fase 3 |
 
-Se um arquivo faltar, aquele tipo usa um inimigo provisório. A altura dos modelos se ajusta em
-`ENEMY_HEIGHT` (inimigos) e `PLAYER_HEIGHT` (jogador).
+Se um arquivo faltar, aquele rival usa um boneco provisório. A altura dos modelos se ajusta em
+`ENEMY_HEIGHT` (rivais) e `PLAYER_HEIGHT` (jogador).
+
+## Como se joga
+
+Elimine todos os rivais e monstros para abrir a saída, que fica escondida sob um dos blocos.
+São **12 fases em 4 cenários** (Gramado, Deserto, Geleira e Vulcão, 3 fases cada); a cada fase
+há mais inimigos, mais rápidos e com bombas mais fortes. Vencer a fase 12 zera o jogo.
+
+- **Rivais** soltam bombas perto de blocos, do jogador e dos monstros, e fogem das explosões.
+- **Monstros** atacam qualquer um: o contato fere o jogador e elimina rivais.
+  - Gosma: anda devagar (desde a fase 1).
+  - Fantasma: atravessa blocos (a partir da fase 4).
+  - Touro: dispara em linha reta ao ver alguém (a partir da fase 7).
+- **Itens** saem de alguns blocos destruídos: +1 bomba, +1 alcance, +velocidade, +1 vida e as
+  bombas especiais, que vêm com munição limitada:
+  - Remota: só explode quando você manda.
+  - Perfurante: a chama atravessa vários blocos em linha.
+  - Mega: a chama vai até a parede.
+
+O conteúdo de cada fase fica na função `levelSetup()` e as cores dos cenários em `THEMES`,
+ambos em `src/config.js`.
 
 ## Controles
 
@@ -52,21 +72,20 @@ Se um arquivo faltar, aquele tipo usa um inimigo provisório. A altura dos model
 | ------ | ---------------- | ----------------------- |
 | Mover  | Setas ou WASD    | Joystick à esquerda     |
 | Bomba  | Espaço           | Botão de bomba à direita |
+| Detonar bomba remota | E | Botão DETONAR (aparece quando há bomba remota) |
 | Pausar | P ou Esc         | Botão ⏸ no topo         |
-
-Elimine todos os inimigos para abrir a saída, que fica escondida sob um dos blocos.
 
 ## Estrutura
 
 ```
 index.html        página, HUD, telas e import map do Three.js
 style.css         estilos (responsivo, tela cheia)
-src/config.js     TODOS os parâmetros do jogo (arena, pavio, velocidades, pontuação)
+src/config.js     TODOS os parâmetros do jogo (arena, pavio, velocidades, fases, cenários)
 src/game.js       cena, câmera, regras e laço principal
 src/map.js        arena: grade, paredes, blocos e porta de saída
 src/player.js     jogador: modelo GLB, animações e movimento
 src/bombs.js      bombas, explosões e reação em cadeia
-src/enemies.js    inimigos (modelos GLB) e IA
+src/enemies.js    rivais (modelos GLB), monstros e IA
 src/model.js      ajuste de tamanho dos modelos GLB
 src/powerups.js   power-ups
 src/particles.js  partículas das explosões

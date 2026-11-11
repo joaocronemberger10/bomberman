@@ -7,9 +7,10 @@
 //   paused      pausado
 //   levelclear  fase concluída (aguardando "Próxima fase")
 //   gameover    fim de jogo
+//   victory     todas as fases concluídas
 // ============================================================================
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CONFIG, levelSetup } from './config.js';
 import { GameMap } from './map.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
@@ -36,8 +37,8 @@ class Game {
     this.powerups = new PowerUpManager(this.scene, this.map);
     this.enemies = new EnemyManager(this.scene, this.map);
     this.bombs = new BombManager(this.scene, this.map, {
-      onExplosion: (col, row, cells) => this._onExplosion(col, row, cells),
-      onBlockDestroyed: (col, row) => this._onBlockDestroyed(col, row),
+      onExplosion: (bomb, cells) => this._onExplosion(bomb, cells),
+      onBlockDestroyed: (col, row, bomb) => this._onBlockDestroyed(col, row, bomb),
     });
 
     // Partículas: fogo (brilho aditivo) e destroços dos blocos (normal).
@@ -196,7 +197,11 @@ class Game {
     this.loadLevel(1);
     this.state = 'playing';
     this.ui.hide();
-    this.ui.toast('Fase 1');
+    this._announceLevel();
+  }
+
+  _announceLevel() {
+    this.ui.toast(`Fase ${this.level} — ${this.setup.theme.name}`, 2200);
   }
 
   /** No celular, tenta entrar em tela cheia (nem todo navegador permite). */
@@ -219,8 +224,12 @@ class Game {
     this.bombs.clear();
     this.powerups.clear();
     this.enemies.clear();
-    const qtd = Math.min(CONFIG.ENEMY_BASE_COUNT + CONFIG.ENEMY_PER_LEVEL * (level - 1), CONFIG.ENEMY_MAX);
-    this.enemies.spawn(this.map.generate(qtd), level);
+    // Conteúdo da fase (cenário, rivais, monstros, dificuldade): veja levelSetup() em config.js.
+    const setup = this.setup = levelSetup(level);
+    this.map.setTheme(setup.theme);
+    this.scene.background.set(setup.theme.background);
+    const qtd = setup.rivals.length + setup.monsters.length;
+    this.enemies.spawn(this.map.generate(qtd, setup.blockDensity), setup);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
     this.player.invulnerable = 0;
@@ -233,7 +242,7 @@ class Game {
     this.loadLevel(this.level + 1);
     this.state = 'playing';
     this.ui.hide();
-    this.ui.toast(`Fase ${this.level}`);
+    this._announceLevel();
   }
 
   pause() {
@@ -261,9 +270,26 @@ class Game {
     this.score += bonus;
     this.state = 'levelclear';
     this.audio.levelClear();
-    this._saveBest();
     this._updateHUD();
-    this.ui.show('levelclear', { level: this.level, bonus: `+${bonus}`, score: this.score });
+
+    if (this.level >= CONFIG.TOTAL_LEVELS) {
+      // Última fase vencida: jogo zerado.
+      this.score += CONFIG.SCORE_GAME;
+      this.state = 'victory';
+      const novoRecorde = this.score > this.best;
+      this._saveBest();
+      this._updateHUD();
+      this.ui.show('victory', { score: this.score, best: this.best, recordMsg: novoRecorde ? '★ Novo recorde! ★' : '' });
+      return;
+    }
+    this._saveBest();
+    const prox = levelSetup(this.level + 1);
+    this.ui.show('levelclear', {
+      level: this.level, bonus: `+${bonus}`, score: this.score,
+      next: prox.theme !== this.setup.theme
+        ? `Novo cenário: ${prox.theme.name}!`
+        : `A seguir: fase ${this.level + 1} de ${CONFIG.TOTAL_LEVELS}`,
+    });
   }
 
   _gameOver() {
@@ -294,29 +320,29 @@ class Game {
 
   // ---------------------------------------------------------------- eventos
 
-  _onExplosion(col, row, cells) {
+  _onExplosion(bomb, cells) {
     this.audio.explosion();
-    this.shake = Math.min(1.4, this.shake + 0.8);
-    const p = this.map.cellToWorld(col, row);
+    this.shake = Math.min(1.4, this.shake + (bomb.type === 'mega' ? 1.2 : 0.8));
+    const p = this.map.cellToWorld(bomb.col, bomb.row);
     this.flash.position.set(p.x, 1.4, p.z);
     this.flash.intensity = 16;
     for (const c of cells) {
       this.map.cellToWorld(c.col, c.row, p);
       this.fire.emit(p.x, 0.35, p.z, {
         count: c.dx === 0 && c.dz === 0 ? 14 : 7,
-        colors: [0xffe27a, 0xffa530, 0xff5a1f, 0xff3b1f],
+        colors: bomb.type === 'pierce' ? [0xe9dcff, 0xb48cff, 0x7a2fd0] : [0xffe27a, 0xffa530, 0xff5a1f, 0xff3b1f],
         speed: 2.2, up: 2.6, life: 0.6, gravity: 3, spread: 0.6,
       });
     }
   }
 
-  _onBlockDestroyed(col, row) {
+  _onBlockDestroyed(col, row, bomb) {
     const p = this.map.cellToWorld(col, row);
     this.debris.emit(p.x, 0.35, p.z, {
-      count: 10, colors: [0xf2a03d, 0xd97f1e, 0xffc56b, 0x8a5a1e],
+      count: 10, colors: this.setup.theme.debris,
       speed: 2.6, up: 3.6, life: 0.8, gravity: 12, spread: 0.5,
     });
-    this.score += CONFIG.SCORE_BLOCK;
+    if (bomb && bomb.owner === this.player) this.score += CONFIG.SCORE_BLOCK;
 
     if (this.map.isDoor(col, row)) {
       // A porta de saída estava escondida sob este bloco.
@@ -338,8 +364,10 @@ class Game {
     });
   }
 
-  _onEnemyKilled(e) {
-    this.score += CONFIG.SCORE_ENEMY * this.enemies.kill(e);
+  /** @param {boolean} pontua  true quando foi o jogador quem derrotou o inimigo */
+  _onEnemyKilled(e, pontua = true) {
+    const valor = this.enemies.kill(e);
+    if (pontua) this.score += CONFIG.SCORE_ENEMY * valor;
     this.audio.enemyDown();
     this.fire.emit(e.mesh.position.x, 0.4, e.mesh.position.z, {
       count: 16, colors: [e.type.color, 0xffffff], speed: 2.4, up: 3, life: 0.6, gravity: 6,
@@ -361,7 +389,7 @@ class Game {
       this._update(dt);
     } else if (this.state === 'menu') {
       // Na tela inicial os inimigos passeiam pela arena ao fundo.
-      this.enemies.update(dt, (c, r) => this.canEnter(c, r), null);
+      this.enemies.update(dt, { canEnter: (c, r) => this.canEnter(c, r), bombs: null, danger: null, player: null });
     }
 
     if (this.state !== 'paused') {
@@ -386,9 +414,14 @@ class Game {
     }
 
     // Bomba: colocada na célula do jogador, respeitando o limite simultâneo.
-    if (this.input.consumeBomb() && !player.dead && this.bombs.count < player.maxBombs) {
-      if (this.bombs.place(player.col, player.row, player.range)) this.audio.placeBomb();
+    if (this.input.consumeBomb() && !player.dead && this.bombs.countOf(player) < player.maxBombs &&
+        this.map.isEmpty(player.col, player.row) && !this.bombs.hasBomb(player.col, player.row)) {
+      const type = player.takeBombType();     // comum ou especial (remota, perfurante, mega)
+      this.bombs.place(player.col, player.row, player.range, { owner: player, type });
+      this.audio.placeBomb();
     }
+    // Bombas remotas: explodem quando o jogador manda.
+    if (this.input.consumeDetonate() && !player.dead) this.bombs.detonateRemote(player);
 
     this.bombs.update(dt);
 
@@ -402,16 +435,36 @@ class Game {
       if (tipo) this._onPowerUp(tipo);
     }
 
-    // Inimigos: não entram em células com bomba nem com chamas.
-    this.enemies.update(dt,
-      (c, r) => this.canEnter(c, r) && !this.bombs.isFlame(c, r),
-      { col: player.col, row: player.row });
-    for (const e of this.enemies.enemies) {
+    // Inimigos. Os rivais usam o mapa de perigo para fugir das explosões e
+    // pedem ao jogo para soltar as próprias bombas.
+    this.enemies.update(dt, {
+      canEnter: (c, r) => this.canEnter(c, r),
+      bombs: this.bombs,
+      danger: this.bombs.computeDanger(),
+      player: { col: player.col, row: player.row, dead: player.dead },
+      placeBomb: (e) => {
+        if (this.bombs.place(e.col, e.row, e.range, { owner: e })) this.audio.placeBomb();
+      },
+    });
+
+    const lista = this.enemies.enemies;
+    for (const e of lista) {
       if (!e.alive) continue;
-      if (this.bombs.isFlame(e.col, e.row)) { this._onEnemyKilled(e); continue; }
-      // Contato com o jogador causa dano.
-      const dx = e.mesh.position.x - player.position.x, dz = e.mesh.position.z - player.position.z;
+      // Chamas eliminam qualquer inimigo; só pontua se a bomba era do jogador.
+      if (this.bombs.isFlame(e.col, e.row)) {
+        this._onEnemyKilled(e, this.bombs.flameOwner(e.col, e.row) === player);
+        continue;
+      }
+      if (e.kind !== 'monster') continue;
+      // Monstros atacam qualquer um: ferem o jogador e eliminam rivais.
+      const ex = e.mesh.position.x, ez = e.mesh.position.z;
+      const dx = ex - player.position.x, dz = ez - player.position.z;
       if (dx * dx + dz * dz < 0.36) this._hurtPlayer();
+      for (const r of lista) {
+        if (!r.alive || r.kind !== 'rival') continue;
+        const rx = r.mesh.position.x - ex, rz = r.mesh.position.z - ez;
+        if (rx * rx + rz * rz < 0.3) this._onEnemyKilled(r, false);
+      }
     }
 
     if (!player.dead) {
@@ -442,11 +495,14 @@ class Game {
 
   _updateHUD() {
     const p = this.player;
+    const nomes = { remote: 'REMOTA', pierce: 'PERFURANTE', mega: 'MEGA' };
+    this.ui.setSpecial(p.special ? `${nomes[p.special.type]} ×${p.special.ammo}` : null);
+    this.ui.setDetonate(this.bombs.hasRemote(p));
     this.ui.setHUD({
       lives: p.lives,
       bombs: p.maxBombs,
       range: p.range,
-      level: this.level,
+      level: `${this.level}/${CONFIG.TOTAL_LEVELS}`,
       time: this.time,
       score: this.score,
     });

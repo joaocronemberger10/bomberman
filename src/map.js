@@ -4,7 +4,7 @@
 // InstancedMesh para manter poucas chamadas de desenho (leve no celular).
 // ============================================================================
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CONFIG, THEMES } from './config.js';
 
 /** Tipos de célula da grade. */
 export const CELL = { EMPTY: 0, WALL: 1, BLOCK: 2 };
@@ -35,6 +35,7 @@ export class GameMap {
     this._buildWalls();
     this._buildBlocks();
     this._buildDoor();
+    this.setTheme(THEMES[0]);
   }
 
   // ------------------------------------------------------------------ grade
@@ -72,7 +73,7 @@ export class GameMap {
    * Gera uma nova arena. Devolve as células onde os inimigos devem nascer.
    * Os cantos (e as células vizinhas) ficam sempre livres.
    */
-  generate(enemyCount = 0) {
+  generate(enemyCount = 0, density = CONFIG.BLOCK_DENSITY) {
     const safe = new Set();
     for (const c of this.corners) {
       const sx = c.col === 1 ? 1 : -1, sz = c.row === 1 ? 1 : -1;
@@ -89,7 +90,7 @@ export class GameMap {
       for (let col = 0; col < COLS; col++) {
         const i = this.index(col, row);
         if (this.isFixedWall(col, row)) { this.grid[i] = CELL.WALL; continue; }
-        this.grid[i] = (!safe.has(i) && Math.random() < CONFIG.BLOCK_DENSITY) ? CELL.BLOCK : CELL.EMPTY;
+        this.grid[i] = (!safe.has(i) && Math.random() < density) ? CELL.BLOCK : CELL.EMPTY;
         const dist = Math.abs(col - start.col) + Math.abs(row - start.row);
         if (!safe.has(i) && dist >= CONFIG.ENEMY_SAFE_DISTANCE) longe.push({ col, row });
       }
@@ -100,7 +101,17 @@ export class GameMap {
       const j = Math.floor(Math.random() * (i + 1));
       [longe[i], longe[j]] = [longe[j], longe[i]];
     }
-    const spawns = longe.splice(0, enemyCount);
+    // Escolhe os pontos de nascimento afastados uns dos outros (quando possível).
+    const spawns = [];
+    for (const minDist of [5, 3, 0]) {
+      for (let i = 0; i < longe.length && spawns.length < enemyCount; i++) {
+        const c = longe[i];
+        if (spawns.every((s) => Math.abs(s.col - c.col) + Math.abs(s.row - c.row) >= minDist)) {
+          spawns.push(c);
+          longe.splice(i--, 1);
+        }
+      }
+    }
     for (const s of spawns) {
       this.grid[this.index(s.col, s.row)] = CELL.EMPTY;
       // Abre um pequeno corredor em volta, para o inimigo ter por onde andar.
@@ -180,35 +191,72 @@ export class GameMap {
   // --------------------------------------------------------------- cenário
 
   _buildGround() {
-    // Chão quadriculado (uma única textura gerada por código).
-    const px = 32;
-    const tex = canvasTexture(COLS * px, ROWS * px, (g) => {
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          g.fillStyle = (r + c) % 2 ? '#74d680' : '#63c871';
-          g.fillRect(c * px, r * px, px, px);
-          g.fillStyle = 'rgba(255,255,255,0.07)';
-          g.fillRect(c * px, r * px, px, 2);
-          g.fillRect(c * px, r * px, 2, px);
-        }
-      }
-    });
+    // Chão quadriculado: uma única textura em canvas, redesenhada a cada cenário.
+    this.floorCanvas = document.createElement('canvas');
+    this.floorCanvas.width = COLS * 32;
+    this.floorCanvas.height = ROWS * 32;
+    this.floorTex = new THREE.CanvasTexture(this.floorCanvas);
+    this.floorTex.colorSpace = THREE.SRGBColorSpace;
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(COLS, ROWS),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ map: this.floorTex, roughness: 0.95 })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.group.add(floor);
 
     // Base em volta da arena, para o cenário não "flutuar" no vazio.
-    const base = new THREE.Mesh(
-      new THREE.BoxGeometry(COLS + 0.6, 0.6, ROWS + 0.6),
-      new THREE.MeshStandardMaterial({ color: 0x39457e, roughness: 0.8 })
-    );
+    this.baseMat = new THREE.MeshStandardMaterial({ color: 0x39457e, roughness: 0.8 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(COLS + 0.6, 0.6, ROWS + 0.6), this.baseMat);
     base.position.y = -0.305;
     base.receiveShadow = true;
     this.group.add(base);
+  }
+
+  /**
+   * Aplica um cenário (veja THEMES em config.js): cores do chão, das paredes
+   * e dos blocos. Nada é recriado, só recolorido — é instantâneo.
+   */
+  setTheme(theme) {
+    this.theme = theme;
+    const px = 32;
+
+    // Chão
+    const g = this.floorCanvas.getContext('2d');
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        g.fillStyle = theme.floor[(r + c) % 2];
+        g.fillRect(c * px, r * px, px, px);
+        g.fillStyle = 'rgba(255,255,255,0.07)';
+        g.fillRect(c * px, r * px, px, 2);
+        g.fillRect(c * px, r * px, 2, px);
+      }
+    }
+    this.floorTex.needsUpdate = true;
+    this.baseMat.color.set(theme.base);
+
+    // Paredes
+    const cor = new THREE.Color();
+    this.wallCells.forEach(({ col, row }, i) => {
+      const borda = col === 0 || row === 0 || col === COLS - 1 || row === ROWS - 1;
+      this.wallBody.setColorAt(i, cor.set(borda ? theme.border : theme.wall));
+      this.wallTop.setColorAt(i, cor.set(borda ? theme.borderTop : theme.wallTop));
+    });
+    this.wallBody.instanceColor.needsUpdate = true;
+    this.wallTop.instanceColor.needsUpdate = true;
+
+    // Blocos destrutíveis ("caixote" desenhado por código)
+    const b = this.blockCanvas.getContext('2d');
+    const [fundo, moldura, brilho] = theme.block;
+    b.fillStyle = fundo; b.fillRect(0, 0, 64, 64);
+    b.fillStyle = moldura;
+    b.fillRect(0, 0, 64, 7); b.fillRect(0, 57, 64, 7);
+    b.fillRect(0, 0, 7, 64); b.fillRect(57, 0, 7, 64);
+    b.strokeStyle = moldura; b.lineWidth = 7;
+    b.beginPath(); b.moveTo(6, 6); b.lineTo(58, 58); b.stroke();
+    b.fillStyle = brilho;
+    b.fillRect(7, 7, 50, 3);
+    this.blockTex.needsUpdate = true;
   }
 
   _buildWalls() {
@@ -230,13 +278,15 @@ export class GameMap {
     const pos = new THREE.Vector3();
     const cor = new THREE.Color();
     cells.forEach(({ col, row }, i) => {
-      const borda = col === 0 || row === 0 || col === COLS - 1 || row === ROWS - 1;
       this.cellToWorld(col, row, pos);
       corpo.setMatrixAt(i, this._m4.makeTranslation(pos.x, 0.28, pos.z));
       tampa.setMatrixAt(i, this._m4.makeTranslation(pos.x, 0.61, pos.z));
-      corpo.setColorAt(i, cor.set(borda ? 0x3b4a9c : 0x4f63d2));
-      tampa.setColorAt(i, cor.set(borda ? 0x5567c9 : 0x7d92ff));
+      corpo.setColorAt(i, cor.set(0xffffff));
+      tampa.setColorAt(i, cor.set(0xffffff));
     });
+    this.wallCells = cells;
+    this.wallBody = corpo;
+    this.wallTop = tampa;
     for (const m of [corpo, tampa]) {
       m.castShadow = true;
       m.receiveShadow = true;
@@ -245,17 +295,12 @@ export class GameMap {
   }
 
   _buildBlocks() {
-    // Textura de "caixote" desenhada por código.
-    const tex = canvasTexture(64, 64, (g) => {
-      g.fillStyle = '#f2a03d'; g.fillRect(0, 0, 64, 64);
-      g.fillStyle = '#d97f1e';
-      g.fillRect(0, 0, 64, 7); g.fillRect(0, 57, 64, 7);
-      g.fillRect(0, 0, 7, 64); g.fillRect(57, 0, 7, 64);
-      g.strokeStyle = '#d97f1e'; g.lineWidth = 7;
-      g.beginPath(); g.moveTo(6, 6); g.lineTo(58, 58); g.stroke();
-      g.fillStyle = '#ffc56b';
-      g.fillRect(7, 7, 50, 3);
-    });
+    // A textura dos blocos é desenhada em setTheme().
+    this.blockCanvas = document.createElement('canvas');
+    this.blockCanvas.width = this.blockCanvas.height = 64;
+    this.blockTex = new THREE.CanvasTexture(this.blockCanvas);
+    this.blockTex.colorSpace = THREE.SRGBColorSpace;
+    const tex = this.blockTex;
     this.blocks = new THREE.InstancedMesh(
       new THREE.BoxGeometry(0.9, 0.6, 0.9),
       new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }),

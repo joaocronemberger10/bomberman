@@ -1,6 +1,7 @@
 // ============================================================================
 // powerups.js — Power-ups que saem de alguns blocos destruídos.
-// Tipos: +1 bomba, +1 alcance, +velocidade, +1 vida.
+// Tipos: +1 bomba, +1 alcance, +velocidade, +1 vida e as bombas especiais
+// (remota, perfurante e mega).
 // ============================================================================
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
@@ -51,6 +52,46 @@ const TYPES = {
       g.bezierCurveTo(4, 34, 12, 10, 32, 24);
       g.bezierCurveTo(52, 10, 60, 34, 32, 54);
       g.fill();
+    },
+  },
+  remote: {
+    color: '#1d5fd1', label: 'Bomba remota!',
+    icon(g) {
+      g.fillStyle = '#0d1b3d';
+      g.beginPath(); g.arc(28, 40, 14, 0, Math.PI * 2); g.fill();
+      g.fillRect(26, 14, 4, 14);
+      g.fillStyle = '#ff4040';
+      g.beginPath(); g.arc(28, 13, 5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#ffffff'; g.lineWidth = 3;
+      for (const r of [9, 15]) { g.beginPath(); g.arc(28, 13, r, -0.9, 0.5); g.stroke(); }
+    },
+  },
+  pierce: {
+    color: '#7a2fd0', label: 'Bomba perfurante!',
+    icon(g) {
+      g.fillStyle = '#1c1036';
+      g.beginPath(); g.arc(32, 34, 13, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ffe066';
+      for (const [x, y, a] of [[32, 10, 0], [56, 34, 1.57], [32, 58, 3.14], [8, 34, -1.57]]) {
+        g.save(); g.translate(x, y); g.rotate(a);
+        g.beginPath(); g.moveTo(0, -7); g.lineTo(7, 7); g.lineTo(-7, 7); g.closePath(); g.fill();
+        g.restore();
+      }
+    },
+  },
+  mega: {
+    color: '#c2351d', label: 'Mega bomba!',
+    icon(g) {
+      g.fillStyle = '#2a0b06';
+      g.beginPath(); g.arc(32, 36, 19, 0, Math.PI * 2); g.fill();
+      g.fillRect(28, 8, 8, 12);
+      g.fillStyle = '#ffe066';
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 5 : 12, a = -Math.PI / 2 + i * Math.PI / 5;
+        g.lineTo(32 + Math.cos(a) * r, 36 + Math.sin(a) * r);
+      }
+      g.closePath(); g.fill();
     },
   },
 };

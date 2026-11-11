@@ -1,6 +1,7 @@
 // ============================================================================
 // input.js — Entrada do jogador (teclado e toque).
-// Teclado: setas ou WASD para mover, espaço para bomba, P para pausar.
+// Teclado: setas ou WASD para mover, espaço para bomba, E para detonar
+// bombas remotas, P para pausar.
 // Toque: joystick virtual à esquerda e botão de bomba à direita.
 // ============================================================================
 
@@ -16,6 +17,7 @@ export class Input {
     this.held = [];            // teclas de direção pressionadas (a mais recente por último)
     this.touchDirs = [];       // direções vindas do joystick virtual
     this.bombPressed = false;
+    this.detonatePressed = false;
     this.onPause = null;       // callback: tecla P / Esc
     this.onConfirm = null;     // callback: Enter (confirma o botão principal das telas)
     this.onAnyInput = null;    // callback: primeiro gesto do usuário (libera o áudio)
@@ -124,6 +126,15 @@ export class Input {
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
       bomb.addEventListener(ev, () => bomb.classList.remove('active'));
     }
+
+    // Botão de detonar (só aparece quando há bombas remotas na arena).
+    const det = document.getElementById('btn-detonate');
+    if (det) {
+      det.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.detonatePressed = true;
+      });
+    }
   }
 
   _keyDown(e) {
@@ -135,6 +146,7 @@ export class Input {
     }
     if (e.repeat) return;
     if (e.code === 'Space') { e.preventDefault(); this.bombPressed = true; }
+    else if (e.code === 'KeyE' || e.code === 'KeyX') { this.detonatePressed = true; }
     else if (e.code === 'KeyP' || e.code === 'Escape') { if (this.onPause) this.onPause(); }
     else if (e.code === 'Enter') { if (this.onConfirm) this.onConfirm(); }
   }
@@ -150,6 +162,7 @@ export class Input {
     if (this._releaseTouch) this._releaseTouch();
     this.touchDirs = [];
     this.bombPressed = false;
+    this.detonatePressed = false;
   }
 
   /**
@@ -161,6 +174,13 @@ export class Input {
     const out = [...this.touchDirs];
     for (let i = this.held.length - 1; i >= 0; i--) out.push(KEY_DIRS[this.held[i]]);
     return out;
+  }
+
+  /** Devolve true uma única vez para cada pedido de detonar bombas remotas. */
+  consumeDetonate() {
+    const p = this.detonatePressed;
+    this.detonatePressed = false;
+    return p;
   }
 
   /** Devolve true uma única vez para cada toque no botão/tecla de bomba. */

@@ -13,6 +13,9 @@ export class UI {
     this.overlay = $('overlay');
     this.toastEl = $('toast');
     this.muteBtn = $('btn-mute');
+    this.specialChip = $('chip-special');
+    this.specialText = $('hud-special');
+    this.detonateBtn = $('btn-detonate');
     this.screens = [...document.querySelectorAll('.screen')];
     this.handlers = {};
     this._last = {};          // últimos valores exibidos (evita mexer no DOM à toa)
@@ -54,6 +57,21 @@ export class UI {
         chip.classList.add('pop');
       }
     }
+  }
+
+  /** Bomba especial em uso (texto) — ou null para esconder o indicador. */
+  setSpecial(text) {
+    if (this._special === text) return;
+    this._special = text;
+    this.specialChip.hidden = !text;
+    this.specialText.textContent = text || '';
+  }
+
+  /** Mostra/esconde o botão de detonar (toque). */
+  setDetonate(visible) {
+    if (this._detonate === visible) return;
+    this._detonate = visible;
+    this.detonateBtn.hidden = !visible;
   }
 
   /** Mostra uma tela (menu, paused, levelclear, gameover) e preenche seus campos. */

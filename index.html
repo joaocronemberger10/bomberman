@@ -29,6 +29,7 @@
       <div class="chip" title="Vidas"><span class="ico">❤️</span><b id="hud-lives">3</b></div>
       <div class="chip" title="Bombas"><span class="ico">💣</span><b id="hud-bombs">1</b></div>
       <div class="chip" title="Alcance"><span class="ico">🔥</span><b id="hud-range">2</b></div>
+      <div class="chip special" id="chip-special" title="Bomba especial" hidden><b id="hud-special"></b></div>
     </div>
     <div class="hud-group">
       <div class="chip" title="Fase"><span class="lbl">FASE</span><b id="hud-level">1</b></div>
@@ -48,6 +49,7 @@
     <div id="touch-zone">
       <div id="joy-base"><div id="joy-knob"></div></div>
     </div>
+    <button id="btn-detonate" aria-label="Detonar bombas remotas" hidden>DETONAR</button>
     <button id="btn-bomb" aria-label="Soltar bomba">
       <svg viewBox="0 0 64 64" aria-hidden="true">
         <circle cx="28" cy="38" r="19" fill="#1c2340"/>
@@ -63,12 +65,13 @@
   <div id="overlay" class="visible">
     <section class="screen active" data-screen="menu">
       <h1 class="logo">BOOM<span>ARENA</span></h1>
-      <p class="tagline">Exploda os blocos, elimine os inimigos e encontre a saída!</p>
+      <p class="tagline">Exploda os blocos, derrote rivais e monstros e encontre a saída. São 12 fases em 4 cenários!</p>
       <button class="btn primary" data-action="play">Jogar</button>
       <p class="record">Recorde: <b data-field="best">0</b></p>
       <ul class="help">
         <li class="only-keys"><kbd>Setas</kbd> ou <kbd>WASD</kbd> mover</li>
         <li class="only-keys"><kbd>Espaço</kbd> bomba</li>
+        <li class="only-keys"><kbd>E</kbd> detonar bomba remota</li>
         <li class="only-keys"><kbd>P</kbd> pausar</li>
         <li class="only-touch">Joystick à esquerda para mover</li>
         <li class="only-touch">Botão de bomba à direita</li>
@@ -84,11 +87,23 @@
 
     <section class="screen" data-screen="levelclear">
       <h2>Fase <span data-field="level">1</span> concluída!</h2>
+      <p class="tagline" data-field="next"></p>
       <dl class="stats">
         <div><dt>Bônus de tempo</dt><dd data-field="bonus">0</dd></div>
         <div><dt>Pontuação</dt><dd data-field="score">0</dd></div>
       </dl>
       <button class="btn primary" data-action="next">Próxima fase</button>
+    </section>
+
+    <section class="screen" data-screen="victory">
+      <h1 class="logo">VOCÊ<span>ZEROU!</span></h1>
+      <p class="tagline">Todas as 12 fases concluídas. Campeão!</p>
+      <p class="new-record" data-field="recordMsg"></p>
+      <dl class="stats">
+        <div><dt>Pontuação final</dt><dd data-field="score">0</dd></div>
+        <div><dt>Recorde</dt><dd data-field="best">0</dd></div>
+      </dl>
+      <button class="btn primary" data-action="restart">Jogar de novo</button>
     </section>
 
     <section class="screen" data-screen="gameover">
