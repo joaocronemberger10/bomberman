@@ -135,7 +135,7 @@ export class Music {
     this.song = this._compose(level, themeName);
     this.gain = ctx.createGain();
     this.gain.gain.value = 0.0001;
-    this.gain.gain.exponentialRampToValueAtTime(0.42, ctx.currentTime + 0.6);   // entra suave
+    this.gain.gain.exponentialRampToValueAtTime(0.26, ctx.currentTime + 0.6);   // entra suave
     this.gain.connect(this.audio.master);
     this.step = 0;
     this.nextTime = ctx.currentTime + 0.15;
@@ -164,7 +164,7 @@ export class Music {
     this.paused = paused;
     const ctx = this.audio.ctx;
     this.gain.gain.cancelScheduledValues(ctx.currentTime);
-    this.gain.gain.setTargetAtTime(paused ? 0.0001 : 0.42, ctx.currentTime, 0.05);
+    this.gain.gain.setTargetAtTime(paused ? 0.0001 : 0.26, ctx.currentTime, 0.05);
     if (!paused) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.1);
   }
 

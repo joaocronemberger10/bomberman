@@ -105,10 +105,13 @@ src/hazards.js    perigos de cada cenário (lama, espinhos, gelo, lasers, balas,
 src/model.js      ajuste de tamanho dos modelos GLB
 src/powerups.js   power-ups
 src/particles.js  partículas das explosões
-src/audio.js      sons gerados com WebAudio
+src/audio.js      efeitos sonoros gerados com WebAudio
+src/music.js      música de fundo gerada por código, uma por fase
 src/input.js      teclado e controles de toque
 src/mover.js      movimento em grade com deslizamento suave
 src/ui.js         HUD, telas e avisos
 assets/models/    player.glb e os modelos dos inimigos
-assets/sounds/    reservado (os sons atuais são gerados por código)
+assets/sounds/    reservado (sons e músicas atuais são gerados por código)
+assets/icons/     ícones do app
+assets/ui/        arte da tela de entrada
 ```
