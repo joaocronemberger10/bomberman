@@ -414,11 +414,22 @@ class Game {
     }
 
     // Bomba: colocada na célula do jogador, respeitando o limite simultâneo.
-    if (this.input.consumeBomb() && !player.dead && this.bombs.countOf(player) < player.maxBombs &&
-        this.map.isEmpty(player.col, player.row) && !this.bombs.hasBomb(player.col, player.row)) {
-      const type = player.takeBombType();     // comum ou especial (remota, perfurante, mega)
-      this.bombs.place(player.col, player.row, player.range, { owner: player, type });
-      this.audio.placeBomb();
+    if (this.input.bombPressed) {
+      // A bomba cai sempre na célula que o jogador está deixando — nunca na da
+      // frente —, para que ele jamais atravesse a própria bomba. Parado, é a
+      // célula onde ele está.
+      const m = player.mover;
+      const podeSoltar = !player.dead && this.bombs.countOf(player) < player.maxBombs;
+      if (podeSoltar && this.map.isEmpty(m.col, m.row) && !this.bombs.hasBomb(m.col, m.row)) {
+        this.input.consumeBomb();
+        const type = player.takeBombType();     // comum ou especial (remota, perfurante, mega)
+        this.bombs.place(m.col, m.row, player.range, { owner: player, type });
+        this.audio.placeBomb();
+      } else if (!podeSoltar || !m.moving) {
+        this.input.consumeBomb();               // não dá para soltar agora: descarta o pedido
+      }
+      // Andando e saindo de uma célula que já tem bomba: o pedido fica guardado
+      // e a bomba cai assim que ele chegar à próxima célula.
     }
     // Bombas remotas: explodem quando o jogador manda.
     if (this.input.consumeDetonate() && !player.dead) this.bombs.detonateRemote(player);
