@@ -69,20 +69,23 @@
 
   <!-- Telas: início, pausa, fase concluída e fim de jogo -->
   <div id="overlay" class="visible">
-    <section class="screen active" data-screen="menu">
-      <h1 class="logo">BOOM<span>ARENA</span></h1>
-      <p class="tagline">Exploda os blocos, derrote rivais e monstros e encontre a saída. São 12 fases, e o cenário muda a cada uma!</p>
-      <button class="btn primary" data-action="play">Jogar</button>
-      <p class="record">Recorde: <b data-field="best">0</b></p>
-      <ul class="help">
-        <li class="only-keys"><kbd>Setas</kbd> ou <kbd>WASD</kbd> mover</li>
-        <li class="only-keys"><kbd>Espaço</kbd> bomba</li>
-        <li class="only-keys"><kbd>E</kbd> detonar bomba remota</li>
-        <li class="only-keys"><kbd>P</kbd> pausar</li>
-        <li class="only-touch">Joystick à esquerda para mover</li>
-        <li class="only-touch">Botão de bomba à direita</li>
-        <li class="only-touch only-portrait">Dica: deite o celular para ver a arena maior</li>
-      </ul>
+    <section class="screen menu active" data-screen="menu">
+      <h1 class="sr-only">Boom Arena</h1>
+      <img class="menu-art" src="assets/ui/capa.webp" alt="" width="852" height="1108">
+      <div class="menu-body">
+        <p class="pill">12 FASES • CENÁRIOS DIFERENTES</p>
+        <p class="tagline">Exploda blocos. Derrote inimigos.<br>Encontre a saída.</p>
+        <button class="btn primary play" data-action="play"><span class="tri" aria-hidden="true"></span>JOGAR AGORA</button>
+        <p class="record"><span class="trofeu" aria-hidden="true">🏆</span> RECORDE <b data-field="best">0</b></p>
+        <ul class="howto">
+          <li class="only-touch"><span class="ico" aria-hidden="true">🕹️</span><div><b>Mover</b><small>Joystick à esquerda</small></div></li>
+          <li class="only-touch"><span class="ico" aria-hidden="true">💣</span><div><b>Soltar bomba</b><small>Botão à direita</small></div></li>
+          <li class="only-keys"><span class="ico" aria-hidden="true">🕹️</span><div><b>Mover</b><small>Setas ou WASD</small></div></li>
+          <li class="only-keys"><span class="ico" aria-hidden="true">💣</span><div><b>Soltar bomba</b><small>Espaço</small></div></li>
+        </ul>
+        <p class="extra only-keys"><kbd>E</kbd> detonar bomba remota &nbsp; <kbd>P</kbd> pausar</p>
+        <p class="rotate-tip"><span aria-hidden="true">🔄</span> Gire o celular para ampliar a arena</p>
+      </div>
     </section>
 
     <section class="screen" data-screen="paused">
