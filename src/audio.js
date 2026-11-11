@@ -10,14 +10,21 @@ export class AudioFX {
     try { this.muted = localStorage.getItem('boom-arena-mudo') === '1'; } catch { /* sem armazenamento */ }
   }
 
-  /** Deve ser chamado em um gesto do usuário (clique/tecla) para liberar o áudio. */
+  /**
+   * Deve ser chamado em um gesto do usuário (toque/clique/tecla) para liberar
+   * o áudio — os navegadores bloqueiam som antes disso. Pode ser chamado
+   * quantas vezes for preciso.
+   */
   unlock() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
+      // iPhone: sem isto o som do jogo fica mudo quando a chave lateral está
+      // no modo silencioso.
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* não suportado */ }
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.muted ? 0 : 0.5;
+      this.master.gain.value = this.muted ? 0 : 0.8;
       this.master.connect(this.ctx.destination);
       // Ruído branco reutilizado nas explosões.
       const len = this.ctx.sampleRate;
@@ -25,12 +32,16 @@ export class AudioFX {
       const d = this.noise.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    // 'suspended' (ainda bloqueado) ou 'interrupted' (iPhone após ligação/troca de app).
+    if (this.ctx.state !== 'running') {
+      const p = this.ctx.resume();
+      if (p && p.catch) p.catch(() => {});
+    }
   }
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.master) this.master.gain.value = this.muted ? 0 : 0.5;
+    if (this.master) this.master.gain.value = this.muted ? 0 : 0.8;
     try { localStorage.setItem('boom-arena-mudo', this.muted ? '1' : '0'); } catch { /* ignora */ }
     return this.muted;
   }

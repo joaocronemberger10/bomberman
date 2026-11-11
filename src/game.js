@@ -21,6 +21,7 @@ import { PowerUpManager, POWERUP_LABELS } from './powerups.js';
 import { EnemyManager } from './enemies.js';
 import { UI } from './ui.js';
 import { HazardManager } from './hazards.js';
+import { Music } from './music.js';
 
 const CHAVE_RECORDE = 'boom-arena-recorde';
 
@@ -32,6 +33,7 @@ class Game {
 
     this.ui = new UI();
     this.audio = new AudioFX();
+    this.music = new Music(this.audio);     // uma música diferente por fase
     this.input = new Input();
     this.map = new GameMap(this.scene);
     this.player = new Player(this.scene, this.map);
@@ -126,7 +128,10 @@ class Game {
     this.input.onPause = () => this.togglePause();
     this.input.onConfirm = () => ui.confirm();
     this.input.onTouchDetected = () => this._resize();
-    window.addEventListener('pointerdown', () => this.audio.unlock(), { passive: true });
+    // Qualquer toque/clique libera o áudio (cada navegador aceita um evento diferente).
+    for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click']) {
+      window.addEventListener(ev, () => this.audio.unlock(), { passive: true });
+    }
   }
 
   /** Espaço (em px) reservado no topo e na base da tela para a interface. */
@@ -206,7 +211,9 @@ class Game {
     this._announceLevel();
   }
 
+  /** Mostra o aviso da fase e começa a música dela. */
   _announceLevel() {
+    this.music.play(this.level, this.setup.theme.name);
     const t = this.setup.theme;
     this.ui.toast(`Fase ${this.level} — ${t.name}. ${t.tip}`, 3200);
   }
@@ -257,6 +264,7 @@ class Game {
   pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused';
+    this.music.setPaused(true);
     this.input.reset();
     this.ui.show('paused');
   }
@@ -264,6 +272,7 @@ class Game {
   resume() {
     if (this.state !== 'paused') return;
     this.state = 'playing';
+    this.music.setPaused(false);
     this.input.reset();
     this.clock.getDelta();        // descarta o tempo em que ficou pausado
     this.ui.hide();
@@ -278,6 +287,7 @@ class Game {
     const bonus = CONFIG.SCORE_LEVEL + Math.ceil(this.time) * CONFIG.SCORE_PER_SECOND;
     this.score += bonus;
     this.state = 'levelclear';
+    this.music.stop();
     this.audio.levelClear();
     this._updateHUD();
 
@@ -303,6 +313,7 @@ class Game {
 
   _gameOver() {
     this.state = 'gameover';
+    this.music.stop();
     this.audio.gameOver();
     const novoRecorde = this.score > this.best;
     this._saveBest();
