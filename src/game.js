@@ -10,7 +10,7 @@
 //   victory     todas as fases concluídas
 // ============================================================================
 import * as THREE from 'three';
-import { CONFIG, levelSetup } from './config.js';
+import { CONFIG, THEMES, levelSetup } from './config.js';
 import { GameMap } from './map.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
@@ -22,6 +22,7 @@ import { EnemyManager } from './enemies.js';
 import { UI } from './ui.js';
 import { HazardManager } from './hazards.js';
 import { Music } from './music.js';
+import { BossManager, BOSSES } from './boss.js';
 
 const CHAVE_RECORDE = 'boom-arena-recorde';
 
@@ -47,6 +48,22 @@ class Game {
     // Perigos típicos de cada cenário (lama, espinhos, gelo, lasers, balas, bolas de fogo).
     this.hazards = new HazardManager(this.scene, this.map, {
       onImpact: (col, row) => this._onFireball(col, row),
+    });
+
+    // Chefões (uma fase de chefão a cada BOSS_EVERY fases concluídas).
+    this.bossStage = 0;      // número do chefão da fase atual (0 = fase normal)
+    this.pendingBoss = 0;    // chefão que vem depois da fase concluída
+    this.bosses = new BossManager(this.scene, this.map, {
+      flame: (c, r) => this._bossFlame(c, r),
+      placeBomb: (c, r, range) => { if (this.bombs.place(c, r, range, { owner: this.bosses.boss })) this.audio.placeBomb(); },
+      summon: (cells, tipo) => this.enemies.spawn(cells, { ...this.setup, rivals: [], monsters: cells.map(() => tipo) }),
+      slowPlayer: (seg) => { this.player.slowTime = seg; this.ui.toast('Congelado! Você está lento.', 1400); },
+      hurtPlayer: () => this._hurtPlayer(),
+      particles: (x, z, cores) => this.fire.emit(x, 0.6, z, { count: 14, colors: cores, speed: 2.4, up: 3, life: 0.6, gravity: 5, spread: 0.6 }),
+      shake: (v) => { this.shake = Math.min(1.5, this.shake + v); },
+      sound: (n) => this.audio.boss(n),
+      toast: (t) => this.ui.toast(t, 1800),
+      onDefeated: () => this._bossClear(),
     });
 
     // Partículas: fogo (brilho aditivo) e destroços dos blocos (normal).
@@ -217,6 +234,7 @@ class Game {
     this.audio.click();
     this._enterFullscreen();
     this.score = 0;
+    this.pendingBoss = 0;
     this.player.resetStats();
     this.loadLevel(1);
     this.state = 'playing';
@@ -226,6 +244,12 @@ class Game {
 
   /** Mostra o aviso da fase e começa a música dela. */
   _announceLevel() {
+    if (this.bossStage) {
+      const d = BOSSES[this.bossStage - 1];
+      this.music.play(100 + this.bossStage, 'Chefão');
+      this.ui.toast(`CHEFÃO ${this.bossStage}: ${d.nome}! ${d.dica}`, 3800);
+      return;
+    }
     this.music.play(this.level, this.setup.theme.name);
     const t = this.setup.theme;
     this.ui.toast(`Fase ${this.level} — ${t.name}. ${t.tip}`, 3200);
@@ -246,6 +270,9 @@ class Game {
   /** Monta uma fase: mais inimigos (e mais rápidos) a cada nível. */
   loadLevel(level) {
     this.level = level;
+    this.bossStage = 0;
+    this.bosses.clear();
+    this.ui.setBoss(null);
     this.time = CONFIG.LEVEL_TIME;
     this.deathTimer = 0;
     this.bombs.clear();
@@ -266,10 +293,42 @@ class Game {
     this.input.reset();
   }
 
+  /**
+   * Monta a fase do chefão n: arena mais aberta, no cenário do chefão, sem os
+   * perigos do cenário (os poderes do chefão já bastam).
+   */
+  loadBoss(n) {
+    this.bossStage = n;
+    this.time = CONFIG.LEVEL_TIME;
+    this.deathTimer = 0;
+    this.bombs.clear();
+    this.powerups.clear();
+    this.enemies.clear();
+    const base = levelSetup(this.level);
+    // Cada chefão luta no cenário que combina com ele (veja BOSSES em boss.js).
+    const tema = THEMES.find((t) => t.name === BOSSES[(n - 1) % BOSSES.length].tema) || base.theme;
+    this.setup = { ...base, theme: tema, rivals: [], monsters: [] };
+    this.map.setTheme(tema);
+    this.scene.background.set(tema.background);
+    const [lugar] = this.map.generate(1, 0.22);
+    this.hazards.setup(null);
+    this.bosses.spawn(n, lugar.col, lugar.row);
+    this.bossDropT = 5;
+    const s = this.map.playerStart;
+    this.player.place(s.col, s.row);
+    this.camTarget.copy(this.player.position).setY(0);
+    this.player.invulnerable = 0;
+    this.player.slowTime = 0;
+    this.input.reset();
+  }
+
   nextLevel() {
     if (this.state !== 'levelclear') return;
     this.audio.click();
-    this.loadLevel(this.level + 1);
+    if (this.pendingBoss) {
+      this.loadBoss(this.pendingBoss);
+      this.pendingBoss = 0;
+    } else this.loadLevel(this.level + 1);
     this.state = 'playing';
     this.ui.hide();
     this._announceLevel();
@@ -304,9 +363,40 @@ class Game {
     this.music.stop();
     this.audio.levelClear();
     this._updateHUD();
+    this._saveBest();
+
+    // A cada BOSS_EVERY fases concluídas vem uma fase de chefão.
+    if (this.level % CONFIG.BOSS_EVERY === 0) {
+      this.pendingBoss = this.level / CONFIG.BOSS_EVERY;
+      const d = BOSSES[(this.pendingBoss - 1) % BOSSES.length];
+      this.ui.show('levelclear', {
+        level: this.level, bonus: `+${bonus}`, score: this.score,
+        next: `Agora: CHEFÃO — ${d.nome}!`,
+      });
+      return;
+    }
+    const prox = levelSetup(this.level + 1);
+    this.ui.show('levelclear', {
+      level: this.level, bonus: `+${bonus}`, score: this.score,
+      next: prox.theme !== this.setup.theme
+        ? `Novo cenário: ${prox.theme.name}!`
+        : `A seguir: fase ${this.level + 1} de ${CONFIG.TOTAL_LEVELS}`,
+    });
+  }
+
+  /** Chefão derrotado: bônus e, depois do último, o jogo está zerado. */
+  _bossClear() {
+    if (this.state !== 'playing') return;
+    const n = this.bossStage;
+    const bonus = CONFIG.SCORE_BOSS * n + Math.ceil(this.time) * CONFIG.SCORE_PER_SECOND;
+    this.score += bonus;
+    this.state = 'levelclear';
+    this.music.stop();
+    this.audio.levelClear();
+    this.ui.setBoss(null);
+    this._updateHUD();
 
     if (this.level >= CONFIG.TOTAL_LEVELS) {
-      // Última fase vencida: jogo zerado.
       this.score += CONFIG.SCORE_GAME;
       this.state = 'victory';
       const novoRecorde = this.score > this.best;
@@ -318,11 +408,17 @@ class Game {
     this._saveBest();
     const prox = levelSetup(this.level + 1);
     this.ui.show('levelclear', {
-      level: this.level, bonus: `+${bonus}`, score: this.score,
-      next: prox.theme !== this.setup.theme
-        ? `Novo cenário: ${prox.theme.name}!`
-        : `A seguir: fase ${this.level + 1} de ${CONFIG.TOTAL_LEVELS}`,
+      level: 'do chefão', bonus: `+${bonus}`, score: this.score,
+      next: `A seguir: fase ${this.level + 1} — ${prox.theme.name}`,
     });
+  }
+
+  /** Chama criada por um poder do chefão: fere o jogador e destrói blocos. */
+  _bossFlame(col, row) {
+    if (this.map.destroyBlock(col, row)) this._onBlockDestroyed(col, row, null);
+    this.bombs.addFlame(col, row, this.bosses.boss);
+    const p = this.map.cellToWorld(col, row);
+    this.fire.emit(p.x, 0.35, p.z, { count: 5, colors: [0xffe27a, 0xffa530, 0xff5a1f], speed: 1.8, up: 2.4, life: 0.5, gravity: 3, spread: 0.5 });
   }
 
   _gameOver() {
@@ -546,7 +642,47 @@ class Game {
       }
     }
 
-    if (!player.dead) {
+    // Chefão: só toma dano das bombas do jogador; encostar nele fere.
+    if (this.bossStage) {
+      const bosses = this.bosses;
+      bosses.update(dt, {
+        canEnter: (c, r) => this.canEnter(c, r),
+        player: { col: player.col, row: player.row, dead: player.dead, gx: player.mover.gx, gz: player.mover.gz },
+        bombs: this.bombs,
+        minions: this.enemies.aliveCount,
+      });
+      const chefe = bosses.boss;
+      if (chefe && chefe.state !== 'dying' && chefe.state !== 'gone') {
+        for (const [c, r] of bosses.cells()) {
+          if (this.bombs.isFlame(c, r) && this.bombs.flameOwner(c, r) !== chefe && bosses.hit()) {
+            this.score += CONFIG.SCORE_BOSS_HIT;
+            const w = chefe.root.position;
+            this.fire.emit(w.x, 1, w.z, { count: 22, colors: [0xffffff, 0xffe066, chefe.def.cor], speed: 3, up: 3.5, life: 0.6, gravity: 5, spread: 0.8 });
+            break;
+          }
+        }
+        if (!player.dead && bosses.touching(player.position.x, player.position.z)) this._hurtPlayer();
+        this.ui.setBoss({ nome: chefe.def.nome, hp: Math.max(0, chefe.hp), max: chefe.maxHp, escudo: bosses.shielded() });
+      }
+      // De tempos em tempos aparece um item para ajudar.
+      this.bossDropT -= dt;
+      if (this.bossDropT <= 0) {
+        this.bossDropT = CONFIG.BOSS_DROP_EVERY;
+        if (this.powerups.items.length < 3) {
+          const livres = [];
+          for (let r = 1; r < CONFIG.ROWS - 1; r++) for (let c = 1; c < CONFIG.COLS - 1; c++) {
+            if (this.canEnter(c, r) && !this.powerups.items.some((p) => p.col === c && p.row === r)) livres.push({ col: c, row: r });
+          }
+          if (livres.length) {
+            const l = livres[Math.floor(Math.random() * livres.length)];
+            const tipos = ['bomb', 'range', 'life', 'pierce', 'mega', 'remote', 'speed'];
+            this.powerups.spawn(l.col, l.row, tipos[Math.floor(Math.random() * tipos.length)]);
+          }
+        }
+      }
+    }
+
+    if (!player.dead && !this.bossStage) {
       // Porta de saída: abre quando não resta nenhum inimigo.
       const door = this.map.door;
       if (!door.open && this.enemies.aliveCount === 0) {
@@ -559,6 +695,8 @@ class Game {
         return;
       }
 
+    }
+    if (!player.dead) {
       // Relógio: se zerar, custa uma vida e devolve um pouco de tempo.
       this.time -= dt;
       if (this.time <= 0) {
@@ -581,7 +719,7 @@ class Game {
       lives: p.lives,
       bombs: p.maxBombs,
       range: p.range,
-      level: `${this.level}/${CONFIG.TOTAL_LEVELS}`,
+      level: this.bossStage ? 'CHEFE' : `${this.level}/${CONFIG.TOTAL_LEVELS}`,
       time: this.time,
       score: this.score,
     });

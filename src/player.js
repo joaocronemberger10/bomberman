@@ -56,6 +56,7 @@ export class Player {
     this.range = CONFIG.PLAYER_RANGE;
     this.speed = CONFIG.PLAYER_SPEED;
     this.special = null;       // bomba especial em uso: { type, ammo }
+    this.slowTime = 0;         // segundos lento (congelado pelo Yeti)
     this.invulnerable = 0;
     this.dead = false;
   }
@@ -132,6 +133,7 @@ export class Player {
       this.deathTime += dt;
     } else {
       this._move(dt, dirs, canEnter, terrain);
+      if (this.slowTime > 0) this.slowTime = Math.max(0, this.slowTime - dt);
       if (this.invulnerable > 0) this.invulnerable = Math.max(0, this.invulnerable - dt);
     }
 
@@ -152,7 +154,7 @@ export class Player {
     }
 
     // Terreno: lama deixa lento, gelo acelera.
-    let resto = this.speed * dt * (terrain ? terrain.speedFactor(m.cellCol, m.cellRow) : 1);
+    let resto = this.speed * dt * (terrain ? terrain.speedFactor(m.cellCol, m.cellRow) : 1) * (this.slowTime > 0 ? 0.45 : 1);
     let guarda = 0;
     while (resto > 1e-6 && guarda++ < 4) {
       if (!m.moving) {

@@ -16,6 +16,9 @@ export class UI {
     this.specialChip = $('chip-special');
     this.specialText = $('hud-special');
     this.detonateBtn = $('btn-detonate');
+    this.bossBar = $('boss-bar');
+    this.bossName = $('boss-name');
+    this.bossFill = $('boss-fill');
     this.screens = [...document.querySelectorAll('.screen')];
     this.handlers = {};
     this._last = {};          // últimos valores exibidos (evita mexer no DOM à toa)
@@ -65,6 +68,21 @@ export class UI {
     this._special = text;
     this.specialChip.hidden = !text;
     this.specialText.textContent = text || '';
+  }
+
+  /** Barra de vida do chefão: { nome, hp, max, escudo } — ou null para esconder. */
+  setBoss(info) {
+    const chave = info ? `${info.nome}|${info.hp}|${info.max}|${info.escudo}` : '';
+    if (this._boss === chave) return;
+    this._boss = chave;
+    this.bossBar.hidden = !info;
+    if (!info) return;
+    this.bossName.textContent = info.escudo ? `${info.nome} 🛡️` : info.nome;
+    this.bossFill.style.width = `${(100 * info.hp) / info.max}%`;
+    this.bossBar.classList.toggle('escudo', !!info.escudo);
+    this.bossBar.classList.remove('hit');
+    void this.bossBar.offsetWidth;
+    this.bossBar.classList.add('hit');
   }
 
   /** Mostra/esconde o botão de detonar (toque). */

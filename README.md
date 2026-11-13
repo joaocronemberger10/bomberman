@@ -51,7 +51,23 @@ Se um arquivo faltar, aquele rival usa um boneco provisório. A altura dos model
 Elimine todos os rivais e monstros para abrir a saída, que fica escondida sob um dos blocos.
 São **12 fases** e o cenário muda a cada uma, passando por 6 cenários (Gramado, Deserto,
 Geleira, Noite Neon, Doceria e Vulcão) duas vezes. A cada fase há mais inimigos, mais rápidos e
-com bombas mais fortes. Vencer a fase 12 zera o jogo.
+com bombas mais fortes. Depois da fase 12 vem o chefão final.
+
+A cada duas fases concluídas vem uma **fase de chefão**, sempre um chefão diferente, num cenário
+que combina com ele. O chefão só toma dano das suas bombas, fica invencível por um instante depois
+de cada acerto e, com metade da vida, fica furioso (mais rápido e atacando mais). Durante a luta
+aparecem itens de tempos em tempos.
+
+| Chefão | Depois da fase | Poderes |
+| ------ | -------------- | ------- |
+| Rei Gosma | 2 | salto esmagador com chamas em cruz; chama filhotes |
+| Robô Laser | 4 | lasers na linha/coluna do jogador (com aviso vermelho); teletransporte |
+| Dragão de Lava | 6 | chuva de bolas de fogo em volta do jogador; investida em linha reta |
+| Yeti Gigante | 8 | sopro congelante que deixa lento; bolas de neve rolando |
+| Mago Sombrio | 10 | escudo mágico (só cai depois de cada magia); bombas mágicas; teletransporte; fantasmas |
+| Rei das Bombas | 12 | chefão final: bombas, investida, salto, bolas de fogo e touros |
+
+Derrotar o Rei das Bombas zera o jogo. Os chefões ficam em `src/boss.js`.
 
 Cada cenário tem um perigo próprio:
 
@@ -105,12 +121,13 @@ src/map.js        arena: grade, paredes, blocos e porta de saída
 src/player.js     jogador: modelo GLB, animações e movimento
 src/bombs.js      bombas, explosões e reação em cadeia
 src/enemies.js    rivais (modelos GLB), monstros e IA
+src/boss.js       os 6 chefões e seus poderes
 src/hazards.js    perigos de cada cenário (lama, espinhos, gelo, lasers, balas, bolas de fogo)
 src/model.js      ajuste de tamanho dos modelos GLB
 src/powerups.js   power-ups
 src/particles.js  partículas das explosões
 src/audio.js      efeitos sonoros gerados com WebAudio
-src/music.js      música de fundo gerada por código, uma por fase
+src/music.js      música de fundo eletrônica gerada por código, uma por fase (e uma para os chefões)
 src/input.js      teclado e controles de toque
 src/mover.js      movimento em grade com deslizamento suave
 src/ui.js         HUD, telas e avisos

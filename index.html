@@ -50,6 +50,12 @@
 
   <div id="toast" role="status"></div>
 
+  <!-- Vida do chefão -->
+  <div id="boss-bar" hidden>
+    <span id="boss-name"></span>
+    <div class="track"><i id="boss-fill"></i></div>
+  </div>
+
   <!-- Controles de toque (aparecem só em telas sensíveis ao toque) -->
   <div id="touch">
     <div id="touch-zone">
@@ -106,7 +112,7 @@
 
     <section class="screen" data-screen="victory">
       <h1 class="logo">VOCÊ<span>ZEROU!</span></h1>
-      <p class="tagline">Todas as 12 fases concluídas. Campeão!</p>
+      <p class="tagline">12 fases e 6 chefões derrotados. Campeão!</p>
       <p class="new-record" data-field="recordMsg"></p>
       <dl class="stats">
         <div><dt>Pontuação final</dt><dd data-field="score">0</dd></div>

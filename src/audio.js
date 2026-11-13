@@ -88,6 +88,20 @@ export class AudioFX {
     this._tone(110, 0.45, { type: 'sine', vol: 0.6, slide: -80 });
   }
 
+  /** Sons dos chefões. */
+  boss(nome) {
+    if (nome === 'bosshit') { this._tone(180, 0.25, { type: 'sawtooth', vol: 0.3, slide: -120 }); this._noise(0.2, { vol: 0.4, from: 3000, to: 300 }); }
+    else if (nome === 'bossdown') { this._noise(1.4, { vol: 0.8, from: 2500, to: 60 }); [523, 659, 784, 1047, 1319].forEach((f, i) => this._tone(f, 0.2, { vol: 0.16, delay: 0.5 + i * 0.1 })); }
+    else if (nome === 'charge') this._tone(220, 0.5, { type: 'sawtooth', vol: 0.12, slide: 500 });
+    else if (nome === 'slam') { this._noise(0.6, { vol: 0.7, from: 1600, to: 60 }); this._tone(70, 0.4, { type: 'sine', vol: 0.6, slide: -40 }); }
+    else if (nome === 'summon') [330, 440, 660].forEach((f, i) => this._tone(f, 0.12, { type: 'triangle', vol: 0.15, delay: i * 0.06 }));
+    else if (nome === 'laser') this._tone(1400, 0.4, { type: 'square', vol: 0.14, slide: -1200 });
+    else if (nome === 'teleport') this._tone(300, 0.35, { type: 'sine', vol: 0.2, slide: 1500 });
+    else if (nome === 'roar') { this._tone(110, 0.6, { type: 'sawtooth', vol: 0.22, slide: -50 }); this._noise(0.5, { vol: 0.25, from: 900, to: 200 }); }
+    else if (nome === 'freeze') this._noise(0.6, { vol: 0.3, from: 8000, to: 2000 });
+    else if (nome === 'impact') this.impact();
+  }
+
   /** Impacto de bola de fogo (explosão mais curta). */
   impact() {
     this._noise(0.3, { vol: 0.45, from: 1200, to: 150 });

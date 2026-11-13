@@ -86,14 +86,18 @@ export const CONFIG = {
   SCORE_POWERUP: 50,
   SCORE_ENEMY: 100,             // multiplicado pelo valor de cada inimigo
   SCORE_GAME: 5000,             // bônus por zerar o jogo
+  SCORE_BOSS: 1500,             // bônus por chefão derrotado (multiplicado pelo número dele)
+  SCORE_BOSS_HIT: 100,          // pontos por acerto no chefão
+  BOSS_EVERY: 2,                // um chefão a cada tantas fases concluídas
+  BOSS_DROP_EVERY: 9,           // na fase de chefão, um item aparece a cada tantos segundos
   SCORE_LEVEL: 500,
   SCORE_PER_SECOND: 5,          // bônus por segundo restante ao terminar a fase
 
   // --- Visual / desempenho ---------------------------------------------------
   CAMERA_FOV: 30,
   CAMERA_TILT: 68,              // inclinação da câmera em graus (90 = totalmente de cima)
-  CAMERA_ZOOM: 2.2,             // aproximação durante a partida (1 = arena inteira na tela)
-  CAMERA_ZOOM_PORTRAIT: 2.7,    // aproximação com o celular em pé (tela estreita)
+  CAMERA_ZOOM: 1.9,             // aproximação durante a partida (1 = arena inteira na tela)
+  CAMERA_ZOOM_PORTRAIT: 2.3,    // aproximação com o celular em pé (tela estreita)
   CAMERA_PLAY_TILT: 57,         // inclinação durante a partida (menor = vê mais o rosto dos bonecos)
   CAMERA_FOLLOW: 6,             // rapidez com que a câmera acompanha o jogador
   MAX_PIXEL_RATIO: 2,           // limita a resolução em telas de alta densidade (celular)
