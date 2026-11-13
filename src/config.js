@@ -92,6 +92,10 @@ export const CONFIG = {
   // --- Visual / desempenho ---------------------------------------------------
   CAMERA_FOV: 30,
   CAMERA_TILT: 68,              // inclinação da câmera em graus (90 = totalmente de cima)
+  CAMERA_ZOOM: 2.2,             // aproximação durante a partida (1 = arena inteira na tela)
+  CAMERA_ZOOM_PORTRAIT: 2.7,    // aproximação com o celular em pé (tela estreita)
+  CAMERA_PLAY_TILT: 57,         // inclinação durante a partida (menor = vê mais o rosto dos bonecos)
+  CAMERA_FOLLOW: 6,             // rapidez com que a câmera acompanha o jogador
   MAX_PIXEL_RATIO: 2,           // limita a resolução em telas de alta densidade (celular)
   SHADOW_MAP_SIZE: 1024,
   MAX_PARTICLES: 500,

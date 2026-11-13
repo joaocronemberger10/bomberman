@@ -100,7 +100,15 @@ class Game {
     this.scene.background = new THREE.Color(0x161a36);
 
     this.camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, 1, 0.5, 120);
-    this.cameraBase = new THREE.Vector3();
+    this.cameraBase = new THREE.Vector3();    // posição da câmera mostrando a arena inteira
+    this.cameraDir = new THREE.Vector3();     // direção (normalizada) do alvo até a câmera
+    this.cameraDist = 30;                     // distância para a arena inteira caber
+    this.camTarget = new THREE.Vector3();     // ponto do chão que a câmera acompanha
+    this.zoom = 1;                            // aproximação atual (vai suavemente até a desejada)
+    this._ray = new THREE.Raycaster();
+    this._chao = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    this._v2 = new THREE.Vector2();
+    this._v3 = new THREE.Vector3();
 
     // Luz ambiente suave (céu/chão) + sol com sombras suaves.
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x5a6bb5, 1.15));
@@ -188,6 +196,11 @@ class Game {
     }
     medir(longe);
     this.cameraBase.copy(cam.position);
+    this.cameraDir.copy(dir);
+    this.cameraDist = longe;
+    // Faixa da tela (em NDC) que fica livre entre a HUD e os controles de toque.
+    this.freeTop = 1 - 2 * m.top / h;
+    this.freeBottom = -1 + 2 * m.bottom / h;
 
     // Centraliza a arena na área livre (entre a HUD e os controles de toque).
     const centroAtual = (minY + maxY) / 2;
@@ -248,6 +261,7 @@ class Game {
     this.hazards.setup(setup.theme.hazard, setup.hazardLevel, nascimentos);
     const s = this.map.playerStart;
     this.player.place(s.col, s.row);
+    if (this.state !== 'menu') this.camTarget.copy(this.player.position).setY(0);
     this.player.invulnerable = 0;
     this.input.reset();
   }
@@ -573,14 +587,85 @@ class Game {
     });
   }
 
+  /**
+   * Câmera: na tela inicial mostra a arena inteira; durante a partida se
+   * aproxima (CAMERA_ZOOM) e acompanha o jogador, sem passar das bordas.
+   */
   _updateCamera(dt) {
+    const cam = this.camera;
+    const jogando = this.state !== 'menu';
+    const retrato = window.innerHeight > window.innerWidth;
+    const zoomJogo = retrato ? CONFIG.CAMERA_ZOOM_PORTRAIT : CONFIG.CAMERA_ZOOM;
+    const zoomAlvo = jogando ? zoomJogo : 1;
+    const k = 1 - Math.exp(-dt * CONFIG.CAMERA_FOLLOW);
+    this.zoom += (zoomAlvo - this.zoom) * k;
+
+    // Ponto desejado: o jogador (ou o centro, na tela inicial).
+    const alvo = this._v3.set(0, 0, 0);
+    if (jogando) alvo.set(this.player.position.x, 0, this.player.position.z);
+    this.camTarget.x += (alvo.x - this.camTarget.x) * k;
+    this.camTarget.z += (alvo.z - this.camTarget.z) * k;
+
+    // Inclinação: vai da vista de cima (tela inicial) para uma vista mais de
+    // frente durante a partida, acompanhando o zoom.
+    const p = zoomJogo > 1 ? Math.min(1, Math.max(0, (this.zoom - 1) / (zoomJogo - 1))) : 0;
+    const tilt = THREE.MathUtils.degToRad(CONFIG.CAMERA_TILT + (CONFIG.CAMERA_PLAY_TILT - CONFIG.CAMERA_TILT) * p);
+    this.cameraDir.set(0, Math.sin(tilt), Math.cos(tilt));
+
+    // Posiciona a câmera olhando para o alvo, à distância do zoom atual.
+    const dist = this.cameraDist / this.zoom;
+    cam.position.copy(this.cameraDir).multiplyScalar(dist).add(this.camTarget);
+    cam.lookAt(this.camTarget);
+    cam.updateMatrixWorld();
+
+    // Não deixa a câmera mostrar além da arena: mede quanto do chão aparece
+    // na área livre da tela e limita o alvo para as bordas não "sobrarem".
+    if (this.zoom > 1.001) {
+      const vis = this._visibleGround();
+      if (vis) {
+        const hx = CONFIG.COLS / 2 + 0.3, hz = CONFIG.ROWS / 2 + 0.3;
+        const limita = (v, min, max, lo, hi) => {
+          const a = lo - min, b = hi - max;      // faixa permitida para o alvo
+          return a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v));
+        };
+        const tx = limita(this.camTarget.x, vis.xMin, vis.xMax, -hx, hx);
+        const tz = limita(this.camTarget.z, vis.zMin, vis.zMax, -hz, hz);
+        if (tx !== this.camTarget.x || tz !== this.camTarget.z) {
+          this.camTarget.x = tx;
+          this.camTarget.z = tz;
+          cam.position.copy(this.cameraDir).multiplyScalar(dist).add(this.camTarget);
+          cam.lookAt(this.camTarget);
+        }
+      }
+    }
+
+    // Tremor das explosões.
     this.shake = Math.max(0, this.shake - dt * 2.2);
-    const k = this.shake * this.shake * 0.35;
-    this.camera.position.set(
-      this.cameraBase.x + (Math.random() - 0.5) * k,
-      this.cameraBase.y + (Math.random() - 0.5) * k,
-      this.cameraBase.z + (Math.random() - 0.5) * k
-    );
+    const s = this.shake * this.shake * 0.35;
+    cam.position.x += (Math.random() - 0.5) * s;
+    cam.position.y += (Math.random() - 0.5) * s;
+    cam.position.z += (Math.random() - 0.5) * s;
+  }
+
+  /**
+   * Quanto do chão aparece na área livre da tela, relativo ao alvo da câmera:
+   * { xMin, xMax, zMin, zMax }. Usa raios saindo das bordas da área livre.
+   */
+  _visibleGround() {
+    const cam = this.camera;
+    const meio = (this.freeTop + this.freeBottom) / 2;
+    const pts = [[0, this.freeTop], [0, this.freeBottom], [-1, meio], [1, meio]];
+    const out = [];
+    for (const [x, y] of pts) {
+      this._ray.setFromCamera(this._v2.set(x, y), cam);
+      const p = new THREE.Vector3();
+      if (!this._ray.ray.intersectPlane(this._chao, p)) return null;
+      out.push(p);
+    }
+    return {
+      zMin: out[0].z - this.camTarget.z, zMax: out[1].z - this.camTarget.z,
+      xMin: out[2].x - this.camTarget.x, xMax: out[3].x - this.camTarget.x,
+    };
   }
 }
 

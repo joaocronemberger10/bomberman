@@ -78,6 +78,10 @@ fogo atingem qualquer um. Na segunda volta (fases 7 a 12) os perigos são mais n
   - Perfurante: a chama atravessa vários blocos em linha.
   - Mega: a chama vai até a parede.
 
+Durante a partida a câmera se aproxima e acompanha o jogador; na tela inicial mostra a arena
+inteira. A aproximação se ajusta em `CAMERA_ZOOM` (tela deitada/computador),
+`CAMERA_ZOOM_PORTRAIT` (celular em pé) e `CAMERA_PLAY_TILT` (inclinação), no `src/config.js`.
+
 O conteúdo de cada fase fica na função `levelSetup()` e as cores dos cenários em `THEMES`,
 ambos em `src/config.js`.
 
